@@ -53,6 +53,10 @@ final class DayPickerViewModel {
         }
 
         let formatter = ISO8601DateFormatter()
+        let nowISOFormatter = ISO8601DateFormatter()
+        nowISOFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let nowISO = nowISOFormatter.string(from: now)
+        let unexpiredOrHasGem = "expires_at.gt.\(nowISO),has_gem.eq.true"
 
         let rows: [EntryCalendarRow]
         do {
@@ -61,6 +65,7 @@ final class DayPickerViewModel {
                 .select("id, created_at, has_gem")
                 .eq("user_id", value: userID.uuidString)
                 .gte("created_at", value: formatter.string(from: windowStart))
+                .or(unexpiredOrHasGem)
                 .execute()
                 .value
         } catch {
@@ -181,10 +186,10 @@ struct DayPickerView: View {
 
         if day.hasGem {
             fill = Color.siftGem
-            labelColor = .white
+            labelColor = Color.siftContrastLight
         } else if day.hasEntry {
             fill = Color.siftInk.opacity(DS.calendarDayOpacity(daysAgo: day.daysAgo))
-            labelColor = .white
+            labelColor = Color.siftContrastLight
         } else {
             fill = Color.siftInk.opacity(0.06)
             labelColor = .siftSubtle
@@ -194,7 +199,7 @@ struct DayPickerView: View {
             RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
                 .fill(fill)
 
-            VStack(spacing: 2) {
+            VStack(spacing: DS.Spacing.xs) {
                 Text("\(dayNumber)")
                     .font(.siftCaption)
                     .foregroundStyle(labelColor)
@@ -202,11 +207,11 @@ struct DayPickerView: View {
                 if day.daysAgo == 0 {
                     Circle()
                         .fill(labelColor)
-                        .frame(width: 4, height: 4)
+                        .frame(width: DS.Spacing.xs, height: DS.Spacing.xs)
                 }
 
                 Text(monthAbbrev)
-                    .font(.system(size: 9, weight: .regular, design: .default))
+                    .font(.siftMicro)
                     .foregroundStyle(labelColor)
             }
         }

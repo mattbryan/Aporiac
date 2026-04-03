@@ -41,7 +41,7 @@ struct ActionItemsView: View {
                 .font(.siftCaption)
                 .foregroundStyle(Color.siftSubtle)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, DS.Spacing.sm)
                 .padding(.top, DS.Spacing.xs)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
@@ -62,7 +62,7 @@ struct ActionItemsView: View {
                         .opacity(item.completed ? 0 : 1)
 
                     Circle()
-                        .fill(Color.siftGem)
+                        .fill(Color.siftInk)
                         .opacity(item.completed ? 1 : 0)
                 }
                 .frame(width: 24, height: 24)
@@ -81,14 +81,14 @@ struct ActionItemsView: View {
             .textFieldStyle(.plain)
             .font(.siftBody)
             .foregroundStyle(Color.siftInk)
-            .tint(Color.siftGem)
+            .tint(Color.siftInk)
             .lineLimit(1...8)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .disabled(item.completed)
         }
         .padding(DS.Spacing.sm)
-        .background(Color.white, in: Capsule())
-        .padding(.horizontal, 12)
+        .background(Color.siftInk.opacity(0.06), in: Capsule())
+        .padding(.horizontal, DS.Spacing.sm)
     }
 }

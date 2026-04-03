@@ -162,7 +162,7 @@ struct HomeView: View {
 
     private var headerContent: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                 Text(Date.now, format: .dateTime.weekday(.wide))
                     .font(.siftCaption)
                     .foregroundStyle(Color.siftSubtle)
@@ -197,14 +197,13 @@ struct HomeView: View {
                         Text(phrase)
                             .font(.siftBodyMedium)
                             .foregroundStyle(Color.siftInk)
-                            .lineLimit(3)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(DS.Spacing.sm)
                 .frame(minHeight: 80, alignment: .topLeading)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+                .background(Color.siftInk.opacity(0.06), in: RoundedRectangle(cornerRadius: DS.Radius.lg))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, DS.Spacing.md)
@@ -246,7 +245,7 @@ private struct ActionItemRow: View {
                         .strokeBorder(Color.siftSubtle, lineWidth: 1.5)
                         .opacity(item.completed ? 0 : 1)
                     Circle()
-                        .fill(Color.siftGem)
+                        .fill(Color.siftInk)
                         .opacity(item.completed ? 1 : 0)
                 }
                 .frame(width: 24, height: 24)
@@ -276,7 +275,7 @@ private struct ActionItemRow: View {
             .textFieldStyle(.plain)
             .font(.siftBody)
             .foregroundStyle(Color.siftInk)
-            .tint(Color.siftGem)
+            .tint(Color.siftInk)
             .lineLimit(1...8)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -284,7 +283,7 @@ private struct ActionItemRow: View {
             .focused($isFocused)
         }
         .padding(DS.Spacing.sm)
-        .background(Color.white, in: Capsule())
+        .background(Color.siftInk.opacity(0.06), in: Capsule())
         .padding(.horizontal, DS.Spacing.md)
         .onAppear {
             fieldText = item.content

@@ -7,6 +7,7 @@ struct Theme: Identifiable, Codable, Sendable {
     var title: String
     var description: String?
     var active: Bool
+    var archivedAt: Date?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -15,6 +16,7 @@ struct Theme: Identifiable, Codable, Sendable {
         case title
         case description
         case active
+        case archivedAt = "archived_at"
         case createdAt = "created_at"
     }
 }

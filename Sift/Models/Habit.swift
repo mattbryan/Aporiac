@@ -7,6 +7,8 @@ struct Habit: Identifiable, Codable, Sendable {
     var title: String
     var fullCriteria: String
     var partialCriteria: String
+    var active: Bool
+    var archivedAt: Date?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -15,6 +17,8 @@ struct Habit: Identifiable, Codable, Sendable {
         case title
         case fullCriteria = "full_criteria"
         case partialCriteria = "partial_criteria"
+        case active
+        case archivedAt = "archived_at"
         case createdAt = "created_at"
     }
 }

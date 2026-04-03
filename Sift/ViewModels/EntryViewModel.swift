@@ -14,6 +14,13 @@ final class EntryViewModel {
     private(set) var currentEntry: Entry?
     private(set) var dailyPrompt: String = "What's on your mind?"
     private(set) var gemViewModel = GemViewModel()
+
+    var reviewPrompt: String? = nil
+
+    var activeThemes: [Theme] {
+        gemViewModel.allThemes
+    }
+
     /// When non-nil, the theme-picker sheet should show for this newly saved gem.
     private(set) var pendingThemePickerGemID: UUID? = nil
     private var saveTask: Task<Void, Never>?
@@ -74,9 +81,26 @@ final class EntryViewModel {
             )
             do {
                 try await service.client.from("gems").insert(insert).execute()
-                pendingThemePickerGemID = highlight.id
             } catch {
                 print("[Entry] Failed to persist gem: \(error)")
+                return
+            }
+            do {
+                try await service.client
+                    .from("entries")
+                    .update(HasGemUpdate(hasGem: true))
+                    .eq("id", value: entry.id.uuidString)
+                    .execute()
+                if var updated = currentEntry {
+                    updated.hasGem = true
+                    currentEntry = updated
+                }
+            } catch {
+                print("[Entry] Failed to update entry has_gem: \(error)")
+            }
+            pendingThemePickerGemID = highlight.id
+            Task {
+                await generateAndStoreThread()
             }
 
         case .action:
@@ -107,6 +131,42 @@ final class EntryViewModel {
                     print("[Entry] Failed to persist action item: \(error)")
                 }
             }
+        }
+    }
+
+    private func generateAndStoreThread() async {
+        guard let entry = currentEntry else { return }
+        let entryID = entry.id
+
+        let gems: [Gem]
+        do {
+            gems = try await service.client
+                .from("gems")
+                .select()
+                .eq("entry_id", value: entryID.uuidString)
+                .order("created_at")
+                .execute()
+                .value
+        } catch {
+            print("[Entry] Failed to fetch gems for thread: \(error)")
+            return
+        }
+
+        guard gems.count >= 2 else { return }
+
+        let contents = gems.map(\.content)
+        guard let sentence = await AIService.shared.gemThread(gems: contents) else { return }
+        let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        do {
+            try await service.client
+                .from("gems")
+                .update(ThreadUpdate(thread: trimmed))
+                .eq("entry_id", value: entryID.uuidString)
+                .execute()
+        } catch {
+            print("[Entry] Failed to persist gem thread: \(error)")
         }
     }
 
@@ -235,6 +295,10 @@ final class EntryViewModel {
                 Task { try? await gemViewModel.load() }
             }
 
+            if let prompt = reviewPrompt, contentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                contentText = prompt
+            }
+
             Task {
                 dailyPrompt = await AIService.shared.dailyPrompt()
             }
@@ -345,6 +409,18 @@ private struct EntryContentUpdate: Encodable {
     enum CodingKeys: String, CodingKey {
         case gratitudeContent = "gratitude_content"
         case content
+    }
+}
+
+private struct ThreadUpdate: Encodable {
+    let thread: String
+}
+
+private struct HasGemUpdate: Encodable {
+    let hasGem: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case hasGem = "has_gem"
     }
 }
 

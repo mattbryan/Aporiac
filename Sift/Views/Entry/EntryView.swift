@@ -8,8 +8,16 @@ enum EntryDestination: Sendable {
     case past(entryID: UUID, calendarDay: Date)
 }
 
+enum ReviewContext: Sendable {
+    case theme
+    case habit
+    case combined
+}
+
 struct EntryView: View {
     var destination: EntryDestination = .today
+    var reviewContext: ReviewContext? = nil
+    var onReviewComplete: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel = EntryViewModel()
@@ -26,6 +34,7 @@ struct EntryView: View {
                 Button {
                     Task {
                         await viewModel.saveNow()
+                        onReviewComplete?()
                         dismiss()
                     }
                 } label: {
@@ -37,6 +46,23 @@ struct EntryView: View {
             }
             .padding(.leading, DS.Spacing.md)
             .padding(.top, DS.Spacing.sm)
+
+            if !viewModel.activeThemes.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        ForEach(viewModel.activeThemes) { theme in
+                            Text(theme.title)
+                                .font(.siftCaption)
+                                .foregroundStyle(Color.siftSubtle)
+                                .padding(.vertical, DS.Spacing.xs)
+                                .padding(.horizontal, DS.Spacing.sm)
+                                .background(Color.siftInk.opacity(0.06), in: Capsule())
+                        }
+                    }
+                    .padding(.horizontal, DS.Spacing.md)
+                }
+                .padding(.bottom, DS.Spacing.xs)
+            }
 
             // MARK: Writing surface
             ScrollView {
@@ -105,7 +131,7 @@ struct EntryView: View {
                                             .strokeBorder(Color.siftSubtle, lineWidth: 1.5)
                                             .opacity(0)
                                         Circle()
-                                            .fill(Color.siftGem)
+                                            .fill(Color.siftInk)
                                     }
                                     .frame(width: 24, height: 24)
 
@@ -116,7 +142,7 @@ struct EntryView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .padding(DS.Spacing.sm)
-                                .background(Color.white, in: Capsule())
+                                .background(Color.siftInk.opacity(0.06), in: Capsule())
                                 .padding(.horizontal, DS.Spacing.md)
                             }
                         }
@@ -133,6 +159,9 @@ struct EntryView: View {
         .task {
             while SupabaseService.shared.currentUser == nil {
                 try? await Task.sleep(for: .milliseconds(100))
+            }
+            if let context = reviewContext {
+                viewModel.reviewPrompt = reviewPromptText(for: context)
             }
             switch destination {
             case .today:
@@ -222,6 +251,17 @@ struct EntryView: View {
         let window = (scenes.first as? UIWindowScene)?.windows.first
         return window?.safeAreaInsets.bottom ?? 0
     }
+
+    private func reviewPromptText(for context: ReviewContext) -> String {
+        switch context {
+        case .theme:
+            return "It's been 90 days. Take a few minutes to reflect on your themes. Are they still the right orientations for where you are? What have you learned about yourself through them? What would you change, retire, or carry forward?"
+        case .habit:
+            return "It's been 14 days. Look honestly at your habits. Which ones are serving you? Which feel like obligation rather than intention? What would it look like to adjust, retire, or recommit?"
+        case .combined:
+            return "Time to step back and look at the bigger picture. Reflect on your themes — are they still the right orientations? Then look at your habits — are they in service of those themes? What would you change, retire, or carry forward into the next season?"
+        }
+    }
 }
 
 // MARK: - Theme picker sheet
@@ -260,7 +300,7 @@ private struct ThemePickerSheet: View {
                                     .foregroundStyle(Color.siftInk)
                                     .padding(.vertical, DS.Spacing.xs)
                                     .padding(.horizontal, DS.Spacing.sm)
-                                    .background(Color.siftGem.opacity(0.12), in: Capsule())
+                                    .background(Color.siftInk.opacity(0.06), in: Capsule())
                             }
                             .buttonStyle(.plain)
                         }

@@ -1,25 +1,50 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Color Tokens
 
 extension Color {
 
+    private static func adaptiveUIColor(light: UIColor, dark: UIColor) -> UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        }
+    }
+
     // MARK: Base
 
-    /// Primary text and UI elements. Near-black.
-    static let siftInk = Color(red: 0.08, green: 0.08, blue: 0.09)
+    /// Primary text and UI elements. Near-black in light mode, near-white in dark mode.
+    static let siftInk = Color(adaptiveUIColor(
+        light: UIColor(red: 0.08, green: 0.08, blue: 0.09, alpha: 1),
+        dark: UIColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1)
+    ))
 
     /// Muted text for unhighlighted content in entries older than today.
-    static let siftInkFaded = Color(red: 0.55, green: 0.55, blue: 0.57)
+    static let siftInkFaded = Color(adaptiveUIColor(
+        light: UIColor(red: 0.55, green: 0.55, blue: 0.57, alpha: 1),
+        dark: UIColor(red: 0.58, green: 0.58, blue: 0.60, alpha: 1)
+    ))
 
-    /// App background. Near-white with a faint warm cast.
-    static let siftSurface = Color(red: 0.98, green: 0.97, blue: 0.96)
+    /// App background. Near-white (light) / near-black (dark) with a faint warm cast.
+    static let siftSurface = Color(adaptiveUIColor(
+        light: UIColor(red: 0.98, green: 0.97, blue: 0.96, alpha: 1),
+        dark: UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
+    ))
 
     /// Section dividers and subtle borders.
-    static let siftDivider = Color(red: 0.88, green: 0.87, blue: 0.86)
+    static let siftDivider = Color(adaptiveUIColor(
+        light: UIColor(red: 0.88, green: 0.87, blue: 0.86, alpha: 1),
+        dark: UIColor(red: 0.24, green: 0.24, blue: 0.25, alpha: 1)
+    ))
 
     /// Secondary UI — labels, placeholders, inactive states.
-    static let siftSubtle = Color(red: 0.72, green: 0.71, blue: 0.70)
+    static let siftSubtle = Color(adaptiveUIColor(
+        light: UIColor(red: 0.72, green: 0.71, blue: 0.70, alpha: 1),
+        dark: UIColor(red: 0.55, green: 0.54, blue: 0.53, alpha: 1)
+    ))
+
+    /// Light label on dark or saturated fills (gem days, habit log selection) where adaptive surface would clash.
+    static let siftContrastLight = Color(red: 0.98, green: 0.97, blue: 0.96)
 
     // MARK: Gem Accent (blue)
 
@@ -45,17 +70,23 @@ extension Font {
     /// Large display — date headers, primary screen titles.
     static let siftTitle = Font.system(size: 28, weight: .medium, design: .default)
 
+    /// Section labels — sheet titles, secondary headers.
+    static let siftHeadline = Font.system(size: 20, weight: .medium, design: .default)
+
     /// Body — primary writing surface, entry content.
-    static let siftBody = Font.system(size: 16, weight: .regular, design: .default)
+    static let siftBody = Font.system(size: 17, weight: .regular, design: .default)
 
     /// Emphasis within body — section labels, card titles.
-    static let siftBodyMedium = Font.system(size: 16, weight: .medium, design: .default)
+    static let siftBodyMedium = Font.system(size: 17, weight: .medium, design: .default)
 
     /// Supporting — captions, metadata, timestamps.
-    static let siftCaption = Font.system(size: 12, weight: .regular, design: .default)
+    static let siftCaption = Font.system(size: 13, weight: .regular, design: .default)
 
     /// Secondary content — supporting sentences, sheet labels.
     static let siftCallout = Font.system(size: 15, weight: .regular, design: .default)
+
+    /// Minimum size — compact calendar aux labels; use sparingly.
+    static let siftMicro = Font.system(size: 11, weight: .regular, design: .default)
 }
 
 // MARK: - Spacing Tokens
@@ -64,17 +95,18 @@ extension Font {
 enum DS {
 
     enum Spacing {
-        static let xs: CGFloat  = 8
-        static let sm: CGFloat  = 16
-        static let md: CGFloat  = 24
-        static let lg: CGFloat  = 32
-        static let xl: CGFloat  = 48
-        static let xxl: CGFloat = 64
+        static let xs:  CGFloat = 4
+        static let sm:  CGFloat = 8
+        static let md:  CGFloat = 16
+        static let lg:  CGFloat = 24
+        static let xl:  CGFloat = 32
+        static let xxl: CGFloat = 48
     }
 
     // MARK: - Corner Radius
 
     enum Radius {
+        static let xs: CGFloat  = 4
         static let sm: CGFloat  = 8
         static let md: CGFloat  = 12
         static let lg: CGFloat  = 16
