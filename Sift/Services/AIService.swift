@@ -59,12 +59,45 @@ final class AIService: Sendable {
         return await complete(system: systemPrompt, user: user)
     }
 
+    // MARK: - Entry card
+
+    /// A 2–6 word label for the Today tab entry card. Uses the same Haiku model.
+    func entryCardBriefSummary(gratitude: String, mindDump: String) async -> String? {
+        let gratitude = gratitude.trimmingCharacters(in: .whitespacesAndNewlines)
+        let mindDump = mindDump.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !gratitude.isEmpty || !mindDump.isEmpty else { return nil }
+
+        let systemPrompt = """
+        You label a private journal entry for a home screen card. \
+        Output ONLY a very short phrase: 2 to 6 words. \
+        Capture the emotional tone or through-line, not a literal summary. \
+        No quotation marks, no leading labels like "Summary:", no emojis, no trailing punctuation.
+        """
+
+        let user = """
+        Gratitude section:
+        \(gratitude.isEmpty ? "(empty)" : gratitude)
+
+        Mind dump:
+        \(mindDump.isEmpty ? "(empty)" : mindDump)
+        """
+
+        guard let raw = await complete(system: systemPrompt, user: user, maxTokens: 48) else { return nil }
+        return Self.clampSummaryWords(raw)
+    }
+
     // MARK: - Core
 
-    private func complete(system: String, user: String) async -> String? {
+    private static func clampSummaryWords(_ text: String) -> String {
+        let parts = text.split { $0.isWhitespace || $0.isNewline }.map(String.init)
+        guard parts.count > 6 else { return text }
+        return parts.prefix(6).joined(separator: " ")
+    }
+
+    private func complete(system: String, user: String, maxTokens: Int = 150) async -> String? {
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 150,
+            "max_tokens": maxTokens,
             "system": system,
             "messages": [["role": "user", "content": user]]
         ]

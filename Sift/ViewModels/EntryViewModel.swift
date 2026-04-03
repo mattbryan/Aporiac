@@ -13,6 +13,9 @@ final class EntryViewModel {
 
     private(set) var currentEntry: Entry?
     private(set) var dailyPrompt: String = "What's on your mind?"
+    private(set) var gemViewModel = GemViewModel()
+    /// When non-nil, the theme-picker sheet should show for this newly saved gem.
+    private(set) var pendingThemePickerGemID: UUID? = nil
     private var saveTask: Task<Void, Never>?
     private var service: SupabaseService { .shared }
 
@@ -25,6 +28,20 @@ final class EntryViewModel {
         }
         Task { @MainActor in
             await persistHighlight(highlight, section: section)
+        }
+    }
+
+    func dismissThemePicker() {
+        pendingThemePickerGemID = nil
+    }
+
+    func associateTheme(themeID: UUID) async {
+        guard let gemID = pendingThemePickerGemID else { return }
+        pendingThemePickerGemID = nil
+        do {
+            try await gemViewModel.addTheme(themeID: themeID, toGemID: gemID)
+        } catch {
+            print("[Entry] Failed to associate theme: \(error)")
         }
     }
 
@@ -57,6 +74,7 @@ final class EntryViewModel {
             )
             do {
                 try await service.client.from("gems").insert(insert).execute()
+                pendingThemePickerGemID = highlight.id
             } catch {
                 print("[Entry] Failed to persist gem: \(error)")
             }
@@ -210,9 +228,11 @@ final class EntryViewModel {
                 gratitudeText = entry.gratitudeContent
                 contentText = entry.content
                 await loadHighlights()
+                Task { try? await gemViewModel.load() }
             } else {
                 print("[Entry] No entry today — creating")
                 try await createEntry(userID: userID)
+                Task { try? await gemViewModel.load() }
             }
 
             Task {
@@ -241,6 +261,7 @@ final class EntryViewModel {
             gratitudeText = entry.gratitudeContent
             contentText = entry.content
             await loadHighlights()
+            Task { try? await gemViewModel.load() }
         } catch {
             print("[Entry] Failed to load entry \(id): \(error)")
         }

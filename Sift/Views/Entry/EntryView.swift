@@ -143,6 +143,20 @@ struct EntryView: View {
         }
         .onChange(of: viewModel.gratitudeText) { viewModel.scheduleAutosave() }
         .onChange(of: viewModel.contentText) { viewModel.scheduleAutosave() }
+        .sheet(isPresented: Binding(
+            get: { viewModel.pendingThemePickerGemID != nil },
+            set: { if !$0 { viewModel.dismissThemePicker() } }
+        )) {
+            ThemePickerSheet(
+                themes: viewModel.gemViewModel.allThemes,
+                onSelect: { themeID in
+                    Task { await viewModel.associateTheme(themeID: themeID) }
+                },
+                onDismiss: { viewModel.dismissThemePicker() }
+            )
+            .presentationDetents([.height(280)])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: Toolbar
@@ -207,6 +221,72 @@ struct EntryView: View {
         let scenes = UIApplication.shared.connectedScenes
         let window = (scenes.first as? UIWindowScene)?.windows.first
         return window?.safeAreaInsets.bottom ?? 0
+    }
+}
+
+// MARK: - Theme picker sheet
+
+/// Bottom sheet to optionally connect a newly flagged gem to an active theme.
+/// Extract to `ThemePickerSheet.swift` when you add that file to the Xcode target.
+private struct ThemePickerSheet: View {
+    let themes: [Theme]
+    let onSelect: (UUID) -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            Text("Add to a theme")
+                .font(.siftCaption)
+                .foregroundStyle(Color.siftSubtle)
+
+            Text("Optional")
+                .font(.siftCaption)
+                .foregroundStyle(Color.siftSubtle.opacity(0.72))
+
+            if themes.isEmpty {
+                Text("No active themes yet")
+                    .font(.siftCallout)
+                    .foregroundStyle(Color.siftSubtle)
+                    .padding(.top, DS.Spacing.xs)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DS.Spacing.sm) {
+                        ForEach(themes) { theme in
+                            Button {
+                                onSelect(theme.id)
+                            } label: {
+                                Text(theme.title)
+                                    .font(.siftCallout)
+                                    .foregroundStyle(Color.siftInk)
+                                    .padding(.vertical, DS.Spacing.xs)
+                                    .padding(.horizontal, DS.Spacing.sm)
+                                    .background(Color.siftGem.opacity(0.12), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, DS.Spacing.xs)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button(action: onDismiss) {
+                Text("Skip")
+                    .font(.siftCallout)
+                    .foregroundStyle(Color.siftInk)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, DS.Spacing.sm)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.top, DS.Spacing.sm)
+        .padding(.bottom, DS.Spacing.md)
+        .background(Color.siftSurface)
     }
 }
 

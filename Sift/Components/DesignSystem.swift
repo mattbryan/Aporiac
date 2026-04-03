@@ -53,6 +53,9 @@ extension Font {
 
     /// Supporting — captions, metadata, timestamps.
     static let siftCaption = Font.system(size: 12, weight: .regular, design: .default)
+
+    /// Secondary content — supporting sentences, sheet labels.
+    static let siftCallout = Font.system(size: 15, weight: .regular, design: .default)
 }
 
 // MARK: - Spacing Tokens

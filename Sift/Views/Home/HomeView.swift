@@ -2,9 +2,9 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var showEntry = false
+    @State private var homeViewModel = HomeViewModel()
     @State private var actionViewModel = ActionItemViewModel()
     @State private var focusedItemID: UUID? = nil
-    private let hasEntry = false
 
     var body: some View {
         List {
@@ -113,14 +113,23 @@ struct HomeView: View {
         .background(Color.siftSurface.ignoresSafeArea())
         .animation(DS.animationSlow, value: actionViewModel.items)
         .task {
-            await actionViewModel.load()
+            async let actions: () = actionViewModel.load()
+            async let card: () = homeViewModel.refreshEntryCard()
+            await actions
+            await card
         }
         .onChange(of: SupabaseService.shared.currentUser?.id) {
-            Task { await actionViewModel.load() }
+            Task {
+                await actionViewModel.load()
+                await homeViewModel.refreshEntryCard()
+            }
         }
         .onChange(of: showEntry) {
             if !showEntry {
-                Task { await actionViewModel.load() }
+                Task {
+                    await actionViewModel.load()
+                    await homeViewModel.refreshEntryCard()
+                }
             }
         }
         .fullScreenCover(isPresented: $showEntry) {
@@ -168,16 +177,28 @@ struct HomeView: View {
                 showEntry = true
             } label: {
                 Group {
-                    if hasEntry {
-                        Text("Entry preview goes here...")
-                            .font(.siftBody)
-                            .foregroundStyle(Color.siftInk)
-                            .lineLimit(3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
+                    switch homeViewModel.entryCardState {
+                    case .startPrompt:
                         Text("Start today's entry")
                             .font(.siftBodyMedium)
                             .foregroundStyle(Color.siftSubtle)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    case .loadingBrief:
+                        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Today's entry")
+                                .font(.siftBody)
+                                .foregroundStyle(Color.siftSubtle)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    case .brief(let phrase):
+                        Text(phrase)
+                            .font(.siftBodyMedium)
+                            .foregroundStyle(Color.siftInk)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }

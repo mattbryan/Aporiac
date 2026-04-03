@@ -3,13 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 100;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		0EB4664770E4EA66A87BA5AE /* Gem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D0F7C119ACC397D49AACBF9 /* Gem.swift */; };
 		133A5BE3CBF93E478FBE14C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BF6048B2472CAFDC9F2223 /* Theme.swift */; };
 		17B5ABA09A0433128F831DF0 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */; };
+		199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6AE2F80086D00E9DE0C /* UserSettings.swift */; };
 		1E3A4EAF34BAB0A01DFB2E69 /* ActionItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF5B38C82769CAC6E7176AB /* ActionItemViewModel.swift */; };
 		298E0E7FF27BAE2DC25B6674 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */; };
 		2FB3AF15B4D1133AE5EB398E /* EntryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 782C04E47936E0F9F289A31D /* EntryViewModel.swift */; };
@@ -27,6 +28,7 @@
 		879CE5F69D0F0BBDA8F9ED8D /* SupabaseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEF474F004CFCC71A43FA901 /* SupabaseConfig.swift */; };
 		963651A64F9AE1D7E388E534 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24DF29B9AF3D71054B551C6D /* DesignSystem.swift */; };
 		ACB3FF4F4613AD4A7E0D895C /* HabitLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7666049ED31A071995FE51DB /* HabitLog.swift */; };
+		B1F263FAC2355E22F3E51B13 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437769D3BBD6A800385E0CCD /* HomeViewModel.swift */; };
 		B2284425094A73B6D0A346BC /* ActionItemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 776C99D7A759657D9FBC516F /* ActionItemsView.swift */; };
 		CF617540A17B16BB9E24EF3A /* EntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFAED793F710ADB02E287CD /* EntryView.swift */; };
 		D257288FE57FEB8302C13284 /* Habit.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2E3692F893AEB59704420B /* Habit.swift */; };
@@ -38,11 +40,13 @@
 /* Begin PBXFileReference section */
 		0B4010C7BA5B6D0C9DFE0520 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		199DD6AE2F80086D00E9DE0C /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
 		1D0F7C119ACC397D49AACBF9 /* Gem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gem.swift; sourceTree = "<group>"; };
 		24DF29B9AF3D71054B551C6D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		2A2A5329070E51736D950FFB /* EntitlementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementService.swift; sourceTree = "<group>"; };
 		2FFFF41092015BFF70F92888 /* GemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GemViewModel.swift; sourceTree = "<group>"; };
 		38C24883D304EC7973E0ACC2 /* DayPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPickerView.swift; sourceTree = "<group>"; };
+		437769D3BBD6A800385E0CCD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		56BA8C7CC51C23786771B6A0 /* HabitViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitViewModel.swift; sourceTree = "<group>"; };
 		57982B3AB55EC76A942D6F57 /* Entitlement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entitlement.swift; sourceTree = "<group>"; };
 		63B25F2E3A2E6DA35E5D6125 /* Entry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entry.swift; sourceTree = "<group>"; };
@@ -56,7 +60,7 @@
 		BB2375A4C712707FC394A363 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C3BF6048B2472CAFDC9F2223 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		C6B65F29393AA46C922CD7CB /* ThemeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeViewModel.swift; sourceTree = "<group>"; };
-		D0A82EFF95D94FE10F5901DB /* Sift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0A82EFF95D94FE10F5901DB /* Sift.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEF474F004CFCC71A43FA901 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; };
 		DF2E3692F893AEB59704420B /* Habit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Habit.swift; sourceTree = "<group>"; };
 		DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
@@ -68,11 +72,9 @@
 /* Begin PBXFrameworksBuildPhase section */
 		B71A9D2E534F321CC5248C16 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				4559BA34F688288543DA22AF /* Supabase in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -161,6 +163,7 @@
 		CF11070B68E460FAD7C2265E /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				199DD6AE2F80086D00E9DE0C /* UserSettings.swift */,
 				E97E95A63C68958476FC3BB6 /* ActionItem.swift */,
 				57982B3AB55EC76A942D6F57 /* Entitlement.swift */,
 				63B25F2E3A2E6DA35E5D6125 /* Entry.swift */,
@@ -187,6 +190,7 @@
 				782C04E47936E0F9F289A31D /* EntryViewModel.swift */,
 				2FFFF41092015BFF70F92888 /* GemViewModel.swift */,
 				56BA8C7CC51C23786771B6A0 /* HabitViewModel.swift */,
+				437769D3BBD6A800385E0CCD /* HomeViewModel.swift */,
 				C6B65F29393AA46C922CD7CB /* ThemeViewModel.swift */,
 			);
 			path = ViewModels;
@@ -218,8 +222,6 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = Sift;
 			packageProductDependencies = (
 				BC4B8EC4265D0F95BD1A4C36 /* Supabase */,
@@ -236,6 +238,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					E76B955C8BCD08241D6FF961 = {
+						DevelopmentTeam = "";
+					};
+				};
 			};
 			buildConfigurationList = 26CDFAA764C4528BC7582626 /* Build configuration list for PBXProject "Sift" */;
 			developmentRegion = en;
@@ -249,7 +256,7 @@
 			packageReferences = (
 				E76E230F85A5BD6CF2D41726 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 100;
 			productRefGroup = 45CA59FC210B6C618C2FB69C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -262,7 +269,6 @@
 /* Begin PBXSourcesBuildPhase section */
 		0195E17015D9C5525CBA2516 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				17B5ABA09A0433128F831DF0 /* AIService.swift in Sources */,
 				72777F4256A38BC5BABFE469 /* ActionItem.swift in Sources */,
@@ -277,12 +283,14 @@
 				CF617540A17B16BB9E24EF3A /* EntryView.swift in Sources */,
 				2FB3AF15B4D1133AE5EB398E /* EntryViewModel.swift in Sources */,
 				0EB4664770E4EA66A87BA5AE /* Gem.swift in Sources */,
+				199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */,
 				5478FCA5B122F9859849C1B9 /* GemViewModel.swift in Sources */,
 				D257288FE57FEB8302C13284 /* Habit.swift in Sources */,
 				ACB3FF4F4613AD4A7E0D895C /* HabitLog.swift in Sources */,
 				6B768CB048E1CAF96654989A /* HabitViewModel.swift in Sources */,
 				40C551D4E23DF5510D8EDF58 /* HabitsView.swift in Sources */,
 				6815A665E953F56843B39C51 /* HomeView.swift in Sources */,
+				B1F263FAC2355E22F3E51B13 /* HomeViewModel.swift in Sources */,
 				7F4CD71556BD60FE5E6EF409 /* RichTextEditor.swift in Sources */,
 				D3D051AD77DF88E31C5ED4BD /* SiftApp.swift in Sources */,
 				879CE5F69D0F0BBDA8F9ED8D /* SupabaseConfig.swift in Sources */,
@@ -290,17 +298,15 @@
 				133A5BE3CBF93E478FBE14C2 /* Theme.swift in Sources */,
 				FFBD9AAC768502A21E390F28 /* ThemeViewModel.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		1CF81597A9DD12C68442C36B /* Debug */ = {
+		1CF81597A9DD12C68442C36B /* Debug configuration for PBXNativeTarget "Sift" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 3U5T65598X;
 				INFOPLIST_FILE = Sift/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -313,7 +319,7 @@
 			};
 			name = Debug;
 		};
-		89A2EA77B80E610BB0F2D29A /* Release */ = {
+		89A2EA77B80E610BB0F2D29A /* Release configuration for PBXProject "Sift" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -372,7 +378,7 @@
 			};
 			name = Release;
 		};
-		DF6C4A37C171C349234402BA /* Debug */ = {
+		DF6C4A37C171C349234402BA /* Debug configuration for PBXProject "Sift" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -438,12 +444,11 @@
 			};
 			name = Debug;
 		};
-		F5AB11CB77DB2BA00FEC1ADC /* Release */ = {
+		F5AB11CB77DB2BA00FEC1ADC /* Release configuration for PBXNativeTarget "Sift" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 3U5T65598X;
 				INFOPLIST_FILE = Sift/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -462,19 +467,17 @@
 		26CDFAA764C4528BC7582626 /* Build configuration list for PBXProject "Sift" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DF6C4A37C171C349234402BA /* Debug */,
-				89A2EA77B80E610BB0F2D29A /* Release */,
+				DF6C4A37C171C349234402BA /* Debug configuration for PBXProject "Sift" */,
+				89A2EA77B80E610BB0F2D29A /* Release configuration for PBXProject "Sift" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 		287BE5D5D56E665411D453C7 /* Build configuration list for PBXNativeTarget "Sift" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				1CF81597A9DD12C68442C36B /* Debug */,
-				F5AB11CB77DB2BA00FEC1ADC /* Release */,
+				1CF81597A9DD12C68442C36B /* Debug configuration for PBXNativeTarget "Sift" */,
+				F5AB11CB77DB2BA00FEC1ADC /* Release configuration for PBXNativeTarget "Sift" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */

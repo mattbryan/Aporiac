@@ -13,14 +13,57 @@ final class ActionItemViewModel {
 
     func load() async {
         guard let userID = service.currentUser?.id else { return }
+        let now = Date()
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let nowISO8601 = formatter.string(from: now)
+        let expiryOrClause = "expires_at.is.null,expires_at.gt.\(nowISO8601)"
+
         do {
-            items = try await service.client
+            let active: [ActionItem] = try await service.client
                 .from("action_items")
                 .select()
                 .eq("user_id", value: userID.uuidString)
+                .eq("completed", value: false)
+                .or(expiryOrClause)
                 .order("created_at")
                 .execute()
                 .value
+
+            let completed: [ActionItem] = try await service.client
+                .from("action_items")
+                .select()
+                .eq("user_id", value: userID.uuidString)
+                .eq("completed", value: true)
+                .or(expiryOrClause)
+                .order("created_at")
+                .execute()
+                .value
+
+            items = active + completed
+
+            let startOfToday = Calendar.current.startOfDay(for: now)
+            for index in items.indices {
+                let item = items[index]
+                guard !item.completed,
+                      item.createdAt < startOfToday,
+                      !item.carriedForward
+                else { continue }
+
+                items[index].carriedForward = true
+                let id = item.id
+                Task {
+                    do {
+                        try await service.client
+                            .from("action_items")
+                            .update(CarriedForwardUpdate(carriedForward: true))
+                            .eq("id", value: id.uuidString)
+                            .execute()
+                    } catch {
+                        print("Failed to update carried_forward: \(error)")
+                    }
+                }
+            }
         } catch {
             print("Failed to load action items: \(error)")
         }
@@ -31,6 +74,7 @@ final class ActionItemViewModel {
     @discardableResult
     func create() async -> ActionItem? {
         guard let userID = service.currentUser?.id else { return nil }
+        guard let expiresAt = Calendar.current.date(byAdding: .day, value: 30, to: Date()) else { return nil }
         let item = ActionItem(
             id: UUID(),
             userID: userID,
@@ -39,7 +83,9 @@ final class ActionItemViewModel {
             completed: false,
             rangeStart: nil,
             rangeEnd: nil,
-            createdAt: Date()
+            createdAt: Date(),
+            carriedForward: false,
+            expiresAt: expiresAt
         )
         items.append(item)
         do {
@@ -80,6 +126,7 @@ final class ActionItemViewModel {
             newCreatedAt = Date()
         }
 
+        guard let expiresAt = Calendar.current.date(byAdding: .day, value: 30, to: Date()) else { return nil }
         let item = ActionItem(
             id: UUID(),
             userID: userID,
@@ -88,7 +135,9 @@ final class ActionItemViewModel {
             completed: false,
             rangeStart: nil,
             rangeEnd: nil,
-            createdAt: newCreatedAt
+            createdAt: newCreatedAt,
+            carriedForward: false,
+            expiresAt: expiresAt
         )
 
         items.append(item)
@@ -192,4 +241,12 @@ private struct CompletionUpdate: Encodable {
 
 private struct ContentUpdate: Encodable {
     let content: String
+}
+
+private struct CarriedForwardUpdate: Encodable {
+    let carriedForward: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case carriedForward = "carried_forward"
+    }
 }
