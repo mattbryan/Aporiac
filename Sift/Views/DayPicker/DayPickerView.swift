@@ -3,10 +3,11 @@ import Observation
 import SwiftUI
 import Supabase
 
-/// Forces `fullScreenCover` to build a fresh `EntryView` on every tap (new `id` each init).
-struct EntryToken: Identifiable {
+/// Forces `fullScreenCover` to build a fresh `CalendarDayHomeView` on every tap (new `id` each init).
+struct DaySummaryToken: Identifiable {
     let id = UUID()
-    let destination: EntryDestination
+    let calendarDay: Date
+    let knownEntryID: UUID?
 }
 
 // MARK: - View model
@@ -109,20 +110,22 @@ struct DayPickerDay: Identifiable {
 
     var hasEntry: Bool { entryID != nil }
 
-    /// Today always opens the entry surface; past days only when an entry exists.
+    /// Today closes the calendar sheet (returns to Home); past days only when an entry exists.
     var isTappable: Bool { daysAgo == 0 || entryID != nil }
 }
 
 // MARK: - View
 
 struct DayPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+
     @State private var viewModel = DayPickerViewModel()
-    @State private var entryToken: EntryToken?
+    @State private var daySummaryToken: DaySummaryToken?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Calendar")
-                .font(.siftTitle)
+                .siftTextStyle(.h1Medium)
                 .foregroundStyle(Color.siftInk)
                 .padding(.horizontal, DS.Spacing.md)
                 .padding(.top, DS.Spacing.lg)
@@ -130,8 +133,11 @@ struct DayPickerView: View {
             Spacer(minLength: DS.Spacing.lg)
 
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                SiftSkeletonShimmer {
+                    DayPickerWeekSkeleton()
+                }
+                .padding(.horizontal, DS.Spacing.md)
+                .frame(maxWidth: .infinity)
             } else {
                 HStack(spacing: DS.Spacing.xs) {
                     ForEach(viewModel.days) { day in
@@ -151,8 +157,8 @@ struct DayPickerView: View {
         .onAppear {
             Task { await viewModel.reload() }
         }
-        .fullScreenCover(item: $entryToken) { token in
-            EntryView(destination: token.destination)
+        .fullScreenCover(item: $daySummaryToken) { token in
+            CalendarDayHomeView(calendarDay: token.calendarDay, knownEntryID: token.knownEntryID)
                 .id(token.id)
         }
     }
@@ -163,9 +169,9 @@ struct DayPickerView: View {
         if day.isTappable {
             Button {
                 if day.daysAgo == 0 {
-                    entryToken = EntryToken(destination: .today)
-                } else if let id = day.entryID {
-                    entryToken = EntryToken(destination: .past(entryID: id, calendarDay: day.calendarDay))
+                    dismiss()
+                } else if day.entryID != nil {
+                    daySummaryToken = DaySummaryToken(calendarDay: day.calendarDay, knownEntryID: day.entryID)
                 }
             } label: {
                 content
@@ -211,7 +217,8 @@ struct DayPickerView: View {
                 }
 
                 Text(monthAbbrev)
-                    .font(.siftMicro)
+                    .font(.siftMicroBold)
+                    .kerning(SiftTracking.microBold)
                     .foregroundStyle(labelColor)
             }
         }

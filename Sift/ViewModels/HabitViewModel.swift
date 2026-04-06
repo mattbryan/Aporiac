@@ -1,59 +1,84 @@
 import Foundation
 import Observation
 
-/// Manages active and archived habits and today’s log state for the current user.
+/// Manages active and archived habits and daily log state for the current user.
 @MainActor
 @Observable
 final class HabitViewModel {
     private(set) var activeHabits: [Habit] = []
     private(set) var archivedHabits: [Habit] = []
-    /// Today's logs keyed by habit ID — loaded with `activeHabits`.
+    /// Logs for `loadedLogDayStart`, keyed by habit ID — loaded with `activeHabits`.
     private(set) var todayLogs: [UUID: HabitLog] = [:]
+    /// Local start-of-day for which `todayLogs` and `setLog` / `cycleLog` apply.
+    private(set) var loadedLogDayStart: Date = Calendar.current.startOfDay(for: Date())
+    /// `true` until the in-flight `load()` finishes.
+    private(set) var isLoading = true
+    /// Set when `load()` fails for reasons other than `notAuthenticated` (e.g. network).
+    private(set) var lastLoadError: String?
 
     private var service: SupabaseService { .shared }
+    /// Serializes `setLog` mutations per habit so rapid taps and overlapping requests stay ordered.
+    private var setLogChainTasks: [UUID: Task<Void, Error>] = [:]
 
-    /// Fetches active habits, archived habits, and today’s logs for active habits.
-    func load() async throws {
-        guard let userID = service.currentUser?.id else {
-            throw HabitViewModelError.notAuthenticated
-        }
+    /// Fetches active habits, archived habits, and logs for `referenceDay` for active habits.
+    func load(for referenceDay: Date = Date()) async throws {
+        isLoading = true
+        defer { isLoading = false }
 
-        let active: [Habit] = try await service.client
-            .from("habits")
-            .select()
-            .eq("user_id", value: userID.uuidString)
-            .eq("active", value: true)
-            .order("created_at")
-            .execute()
-            .value
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: referenceDay)
+        let dateKey = HabitLog.dayString(for: dayStart)
 
-        let archived: [Habit] = try await service.client
-            .from("habits")
-            .select()
-            .eq("user_id", value: userID.uuidString)
-            .eq("active", value: false)
-            .order("archived_at", ascending: false)
-            .execute()
-            .value
+        do {
+            lastLoadError = nil
+            guard let userID = service.currentUser?.id else {
+                throw HabitViewModelError.notAuthenticated
+            }
 
-        var logsByHabit: [UUID: HabitLog] = [:]
-        if active.isEmpty {
-            logsByHabit = [:]
-        } else {
-            let habitIDs = active.map(\.id)
-            let logs: [HabitLog] = try await service.client
-                .from("habit_logs")
+            loadedLogDayStart = dayStart
+
+            let active: [Habit] = try await service.client
+                .from("habits")
                 .select()
-                .in("habit_id", values: habitIDs)
-                .eq("date", value: HabitLog.todayString())
+                .eq("user_id", value: userID.uuidString)
+                .eq("active", value: true)
+                .order("created_at")
                 .execute()
                 .value
-            logsByHabit = Dictionary(uniqueKeysWithValues: logs.map { ($0.habitID, $0) })
-        }
 
-        activeHabits = active
-        archivedHabits = archived
-        todayLogs = logsByHabit
+            let archived: [Habit] = try await service.client
+                .from("habits")
+                .select()
+                .eq("user_id", value: userID.uuidString)
+                .eq("active", value: false)
+                .order("archived_at", ascending: false)
+                .execute()
+                .value
+
+            var logsByHabit: [UUID: HabitLog] = [:]
+            if active.isEmpty {
+                logsByHabit = [:]
+            } else {
+                let habitIDs = active.map(\.id)
+                let logs: [HabitLog] = try await service.client
+                    .from("habit_logs")
+                    .select()
+                    .in("habit_id", values: habitIDs)
+                    .eq("date", value: dateKey)
+                    .execute()
+                    .value
+                logsByHabit = Dictionary(uniqueKeysWithValues: logs.map { ($0.habitID, $0) })
+            }
+
+            activeHabits = active
+            archivedHabits = archived
+            todayLogs = logsByHabit
+        } catch {
+            if case HabitViewModelError.notAuthenticated = error {} else {
+                lastLoadError = "Couldn’t load habits."
+            }
+            throw error
+        }
     }
 
     /// Inserts a new active habit and appends to `activeHabits`, reverting on failure.
@@ -165,25 +190,88 @@ final class HabitViewModel {
     }
 
     func setLog(habitID: UUID, credit: Float) async throws {
-        let today = HabitLog.todayString()
+        let key = habitID
+        let predecessor = setLogChainTasks[key]
+        let next = Task { @MainActor in
+            if let predecessor {
+                _ = try? await predecessor.value
+            }
+            try await self.applySetLog(habitID: key, credit: credit)
+        }
+        setLogChainTasks[key] = next
+        try await next.value
+    }
+
+    /// Cycles today's log for a habit: nil/0 → 0.5 → 1.0 → 0.
+    /// Uses the same task-chaining as `setLog` so rapid calls sequence correctly and
+    /// each call reads the state left by the previous one.
+    func cycleLog(habitID: UUID) async throws {
+        let key = habitID
+        let predecessor = setLogChainTasks[key]
+        let next = Task { @MainActor in
+            if let predecessor {
+                _ = try? await predecessor.value
+            }
+            let epsilon: Float = 0.01
+            let current = self.todayLogs[key]?.credit
+            let nextCredit: Float
+            if current == nil || (current.map { abs($0) < epsilon } ?? false) {
+                nextCredit = 0.5
+            } else if current.map({ abs($0 - 0.5) < epsilon }) ?? false {
+                nextCredit = 1.0
+            } else {
+                nextCredit = 0.0
+            }
+            try await self.applySetLog(habitID: key, credit: nextCredit)
+        }
+        setLogChainTasks[key] = next
+        try await next.value
+    }
+
+    private func applySetLog(habitID: UUID, credit: Float) async throws {
+        let dayStr = HabitLog.dayString(for: loadedLogDayStart)
+
         if credit == 0 {
-            try await service.client
-                .from("habit_logs")
-                .delete()
-                .eq("habit_id", value: habitID.uuidString)
-                .eq("date", value: today)
-                .execute()
+            // Optimistic remove
+            let snapshot = todayLogs[habitID]
             todayLogs.removeValue(forKey: habitID)
+            do {
+                try await service.client
+                    .from("habit_logs")
+                    .delete()
+                    .eq("habit_id", value: habitID.uuidString)
+                    .eq("date", value: dayStr)
+                    .execute()
+            } catch {
+                todayLogs[habitID] = snapshot // revert
+                throw error
+            }
         } else {
-            let insert = HabitLogInsert(habitID: habitID, date: today, credit: credit)
-            let log: HabitLog = try await service.client
-                .from("habit_logs")
-                .upsert(insert, onConflict: "habit_id,date")
-                .select()
-                .single()
-                .execute()
-                .value
-            todayLogs[habitID] = log
+            // Optimistic insert — use a placeholder ID; replaced by confirmed log
+            let placeholder = HabitLog(
+                id: UUID(),
+                habitID: habitID,
+                date: dayStr,
+                credit: credit
+            )
+            let snapshot = todayLogs[habitID]
+            todayLogs[habitID] = placeholder
+            do {
+                let confirmed: HabitLog = try await service.client
+                    .from("habit_logs")
+                    .upsert(
+                        HabitLogInsert(habitID: habitID, date: dayStr, credit: credit),
+                        onConflict: "habit_id,date"
+                    )
+                    .select()
+                    .single()
+                    .execute()
+                    .value
+                todayLogs[habitID] = confirmed
+            } catch {
+                todayLogs[habitID] = snapshot // revert
+                throw error
+            }
         }
     }
 

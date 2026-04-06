@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Which entry the writing surface should load.
-enum EntryDestination: Sendable {
+enum EntryDestination: Sendable, Equatable {
     case today
     /// `calendarDay` is used for the header while the entry row loads (and should match that row's `created_at` day).
     case past(entryID: UUID, calendarDay: Date)
@@ -22,170 +22,214 @@ struct EntryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel = EntryViewModel()
 
+    /// Whether the ENTRY section is unlocked. False = show "Start Entry" button. True = show editor.
+    @State private var entryStarted: Bool = false
+
     @State private var hasSelection = false
-    @State private var activeSection: EntrySection = .gratitude
-    private let gratitudeTrigger = HighlightTrigger()
-    private let contentTrigger = HighlightTrigger()
+    @State private var contentSelectionRange = NSRange(location: 0, length: 0)
+    private let contentTransformTrigger = MarkdownTransformTrigger()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // MARK: Header
-            HStack {
-                Button {
-                    Task {
-                        await viewModel.saveNow()
-                        onReviewComplete?()
-                        dismiss()
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.siftSubtle)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, DS.Spacing.md)
-            .padding(.top, DS.Spacing.sm)
-
-            if !viewModel.activeThemes.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: DS.Spacing.xs) {
-                        ForEach(viewModel.activeThemes) { theme in
-                            Text(theme.title)
-                                .font(.siftCaption)
-                                .foregroundStyle(Color.siftSubtle)
-                                .padding(.vertical, DS.Spacing.xs)
-                                .padding(.horizontal, DS.Spacing.sm)
-                                .background(Color.siftInk.opacity(0.06), in: Capsule())
-                        }
-                    }
-                    .padding(.horizontal, DS.Spacing.md)
-                }
-                .padding(.bottom, DS.Spacing.xs)
-            }
-
-            // MARK: Writing surface
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 0) {
+            // MARK: Entry surface
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(entryHeaderDate, format: .dateTime.weekday(.wide).month(.wide).day())
-                        .font(.siftCaption)
-                        .foregroundStyle(Color.siftSubtle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, DS.Spacing.md)
-                        .padding(.top, DS.Spacing.sm)
-                        .padding(.bottom, DS.Spacing.xs)
-
-                    RichTextEditor(
-                        text: $viewModel.gratitudeText,
-                        highlights: $viewModel.gratitudeHighlights,
-                        placeholder: "Today, I'm grateful for...",
-                        textColor: .siftInk,
-                        listMode: .bullet,
-                        trigger: gratitudeTrigger,
-                        onSelectionChanged: { selected in
-                            if selected { activeSection = .gratitude }
-                            hasSelection = selected
-                        },
-                        onHighlightAdded: { viewModel.addHighlight($0, section: .gratitude) }
-                    )
-                    .padding(.horizontal, DS.Spacing.md)
-
-                    Divider()
-                        .background(Color.siftDivider)
-                        .padding(.horizontal, DS.Spacing.md)
-                        .padding(.vertical, DS.Spacing.sm)
-
-                    RichTextEditor(
-                        text: $viewModel.contentText,
-                        highlights: $viewModel.contentHighlights,
-                        placeholder: viewModel.dailyPrompt,
-                        textColor: .siftInk,
-                        trigger: contentTrigger,
-                        onSelectionChanged: { selected in
-                            if selected { activeSection = .content }
-                            hasSelection = selected
-                        },
-                        onHighlightAdded: { viewModel.addHighlight($0, section: .content) }
-                    )
-                    .padding(.horizontal, DS.Spacing.md)
-                    .padding(.bottom, viewModel.completedActionsForEntry.isEmpty ? DS.Spacing.xl : 0)
-
-                    if !viewModel.completedActionsForEntry.isEmpty {
-                        Divider()
-                            .background(Color.siftDivider)
-                            .padding(.horizontal, DS.Spacing.md)
-                            .padding(.vertical, DS.Spacing.sm)
-
-                        Text("Completed actions")
-                            .font(.siftCaption)
-                            .foregroundStyle(Color.siftSubtle)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, DS.Spacing.md)
-                            .padding(.bottom, DS.Spacing.xs)
-
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    if viewModel.isEntryContentLoading {
+                        SiftSkeletonShimmer { preEntrySkeleton }
+                    } else {
+                        // GRATITUDE — always visible
                         VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                            ForEach(viewModel.completedActionsForEntry) { action in
-                                HStack(alignment: .center, spacing: DS.Spacing.sm) {
-                                    ZStack {
-                                        Circle()
-                                            .strokeBorder(Color.siftSubtle, lineWidth: 1.5)
-                                            .opacity(0)
-                                        Circle()
-                                            .fill(Color.siftInk)
-                                    }
-                                    .frame(width: 24, height: 24)
+                            Text("GRATITUDE")
+                                .siftTextStyle(.microBold)
+                                .foregroundStyle(Color.siftAccent)
+                            Text("I'm grateful for...")
+                                .siftTextStyle(.h2Bold)
+                                .foregroundStyle(Color.siftInk)
+                        }
+                        RichTextEditor(
+                            text: $viewModel.gratitudeText,
+                            placeholder: "What are you grateful for today?",
+                            textColor: .siftInk,
+                            listMode: .bullet,
+                            onSelectionChanged: { _, _ in }
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                                    Text(action.content)
-                                        .font(.siftBody)
-                                        .foregroundStyle(Color.siftSubtle)
-                                        .strikethrough()
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Rectangle()
+                            .fill(Color.siftDivider)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 2)
+
+                        // THEMES — always visible (selected chips link new gems on save; no separate picker).
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text("THEMES")
+                                .siftTextStyle(.microBold)
+                                .foregroundStyle(Color.siftAccent)
+                            Text("Today's Focus")
+                                .siftTextStyle(.h2Bold)
+                                .foregroundStyle(Color.siftInk)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: DS.Spacing.xs) {
+                                ForEach(viewModel.activeThemes) { theme in
+                                    ThemeToggleButton(
+                                        title: theme.title,
+                                        isActive: viewModel.selectedThemeIDs.contains(theme.id),
+                                        action: { viewModel.toggleTheme(theme.id) }
+                                    )
                                 }
-                                .padding(DS.Spacing.sm)
-                                .background(Color.siftInk.opacity(0.06), in: Capsule())
-                                .padding(.horizontal, DS.Spacing.md)
                             }
                         }
-                        .padding(.bottom, DS.Spacing.xl)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        if !viewModel.activeThemes.isEmpty {
+                            Text("New gems you save are linked to the themes you select here.")
+                                .font(.siftCaption)
+                                .foregroundStyle(Color.siftSubtle)
+                                .padding(.top, DS.Spacing.xs)
+                        }
+
+                        Rectangle()
+                            .fill(Color.siftDivider)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 2)
+
+                        // ENTRY — toggled by entryStarted
+                        if entryStarted {
+                            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                                Text("ENTRY")
+                                    .siftTextStyle(.microBold)
+                                    .foregroundStyle(Color.siftAccent)
+                                MarkdownTextEditor(
+                                    text: $viewModel.contentText,
+                                    placeholder: viewModel.dailyPrompt,
+                                    textColor: .siftInk,
+                                    trigger: contentTransformTrigger,
+                                    onSelectionChanged: { selected, range in
+                                        contentSelectionRange = range
+                                        hasSelection = selected
+                                    }
+                                )
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        } else {
+                            // Start Entry button
+                            Button {
+                                Task {
+                                    await viewModel.prepareWritingPhase()
+                                    withAnimation(DS.animationSlow) {
+                                        entryStarted = true
+                                    }
+                                }
+                            } label: {
+                                Text("Start Entry")
+                                    .font(.siftBodyMedium)
+                                    .foregroundStyle(Color.siftInk)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.xs)
+                                    .strokeBorder(Color.siftAccent, lineWidth: 2)
+                            )
+                        }
                     }
                 }
+                .padding(.horizontal, DS.Spacing.md)
+                .padding(.top, DS.Spacing.xs)
+                .padding(.bottom, DS.Spacing.xl)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollDismissesKeyboard(.interactively)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            highlightToolbar
-        }
-        .background(Color.siftSurface.ignoresSafeArea())
-        .task {
-            while SupabaseService.shared.currentUser == nil {
-                try? await Task.sleep(for: .milliseconds(100))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                highlightToolbar
+            }
+            .background(Color.siftSurface.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        Task {
+                            await viewModel.saveNow()
+                            onReviewComplete?()
+                            dismiss()
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color.siftInk)
+                            .frame(width: 40, height: 40)
+                    }
+                    .glassEffect(.regular.interactive(), in: Circle())
+                }
+            }
+        }
+        .task {
+            await SupabaseService.shared.waitForCurrentUser()
             if let context = reviewContext {
                 viewModel.reviewPrompt = reviewPromptText(for: context)
             }
             switch destination {
             case .today:
                 await viewModel.loadOrCreateTodayEntry()
+                let hasContent = !viewModel.contentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                if hasContent || reviewContext != nil {
+                    await viewModel.prepareWritingPhase()
+                    entryStarted = true
+                }
             case .past(let id, _):
                 await viewModel.loadEntry(id: id)
+                entryStarted = true
             }
         }
         .onChange(of: viewModel.gratitudeText) { viewModel.scheduleAutosave() }
         .onChange(of: viewModel.contentText) { viewModel.scheduleAutosave() }
-        .sheet(isPresented: Binding(
-            get: { viewModel.pendingThemePickerGemID != nil },
-            set: { if !$0 { viewModel.dismissThemePicker() } }
-        )) {
-            ThemePickerSheet(
-                themes: viewModel.gemViewModel.allThemes,
-                onSelect: { themeID in
-                    Task { await viewModel.associateTheme(themeID: themeID) }
-                },
-                onDismiss: { viewModel.dismissThemePicker() }
-            )
-            .presentationDetents([.height(280)])
-            .presentationDragIndicator(.visible)
+        .onReceive(NotificationCenter.default.publisher(for: .siftActionCompletionChanged)) { notification in
+            guard
+                let content = notification.userInfo?["actionContent"] as? String,
+                let completed = notification.userInfo?["completed"] as? Bool,
+                let entryID = notification.userInfo?["entryID"] as? UUID,
+                entryID == viewModel.currentEntry?.id
+            else { return }
+
+            viewModel.applyActionCompletionUpdate(content: content, completed: completed)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .siftEntryBodyUpdatedFromDayView)) { note in
+            guard let entryID = note.object as? UUID else { return }
+            Task { await viewModel.reloadCurrentEntryBodyFromServerIfNeeded(entryID: entryID) }
+        }
+    }
+
+    /// Placeholder layout while the entry payload loads.
+    private var preEntrySkeleton: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                SiftSkeletonLine(height: 11, widthFraction: 0.28)
+                SiftSkeletonLine(height: 24, widthFraction: 0.72)
+            }
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                ForEach(0..<3, id: \.self) { i in
+                    SiftSkeletonLine(height: 16, widthFraction: i == 2 ? 0.55 : 1)
+                }
+            }
+            SiftSkeletonBlock(height: 2, width: nil)
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                SiftSkeletonLine(height: 11, widthFraction: 0.22)
+                SiftSkeletonLine(height: 24, widthFraction: 0.48)
+            }
+            HStack(spacing: DS.Spacing.xs) {
+                SiftSkeletonBlock(height: 32, width: 72)
+                SiftSkeletonBlock(height: 32, width: 88)
+                SiftSkeletonBlock(height: 32, width: 64)
+            }
+            SiftSkeletonBlock(height: 2, width: nil)
+            SiftSkeletonLine(height: 44, widthFraction: 1)
+        }
+        .padding(.top, DS.Spacing.xs)
     }
 
     // MARK: Toolbar
@@ -195,11 +239,16 @@ struct EntryView: View {
         VStack(spacing: 0) {
             if hasSelection {
                 HStack(spacing: DS.Spacing.sm) {
+                    if isOnGemLine {
+                        toolbarButton(label: "Remove gem", color: Color.siftSubtle) {
+                            viewModel.removeGemAtSelection(contentSelectionRange)
+                        }
+                    }
                     toolbarButton(label: "Gem", color: Color.siftGem) {
-                        activeTrigger.fire(.gem)
+                        contentTransformTrigger.fire(.gem)
                     }
                     toolbarButton(label: "Action", color: Color.siftAction) {
-                        activeTrigger.fire(.action)
+                        contentTransformTrigger.fire(.actionIncomplete)
                     }
                     Spacer()
                 }
@@ -216,6 +265,17 @@ struct EntryView: View {
         .animation(DS.animationSlow, value: hasSelection)
     }
 
+    private var isOnGemLine: Bool {
+        let ns = viewModel.contentText as NSString
+        guard contentSelectionRange.location < ns.length else { return false }
+        var lineStart = 0
+        var contentsEnd = 0
+        ns.getLineStart(&lineStart, end: nil, contentsEnd: &contentsEnd,
+                        for: NSRange(location: contentSelectionRange.location, length: 0))
+        let line = ns.substring(with: NSRange(location: lineStart, length: contentsEnd - lineStart))
+        return line.hasPrefix("> ")
+    }
+
     private func toolbarButton(label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
@@ -226,23 +286,6 @@ struct EntryView: View {
                 .background(color.opacity(0.1), in: Capsule())
         }
         .buttonStyle(.plain)
-    }
-
-    private var activeTrigger: HighlightTrigger {
-        activeSection == .gratitude ? gratitudeTrigger : contentTrigger
-    }
-
-    /// Shown above the editor — uses loaded entry metadata when available so past days are not labeled as today.
-    private var entryHeaderDate: Date {
-        if let created = viewModel.currentEntry?.createdAt {
-            return created
-        }
-        switch destination {
-        case .today:
-            return Date.now
-        case .past(_, let calendarDay):
-            return calendarDay
-        }
     }
 
     /// Bottom safe area (home indicator) for toolbar padding; not affected by keyboard.
@@ -264,69 +307,29 @@ struct EntryView: View {
     }
 }
 
-// MARK: - Theme picker sheet
+// MARK: - Theme toggle
 
-/// Bottom sheet to optionally connect a newly flagged gem to an active theme.
-/// Extract to `ThemePickerSheet.swift` when you add that file to the Xcode target.
-private struct ThemePickerSheet: View {
-    let themes: [Theme]
-    let onSelect: (UUID) -> Void
-    let onDismiss: () -> Void
+/// Capsule chip for toggling an active theme on the entry screen.
+private struct ThemeToggleButton: View {
+    let title: String
+    let isActive: Bool
+    let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-            Text("Add to a theme")
-                .font(.siftCaption)
-                .foregroundStyle(Color.siftSubtle)
-
-            Text("Optional")
-                .font(.siftCaption)
-                .foregroundStyle(Color.siftSubtle.opacity(0.72))
-
-            if themes.isEmpty {
-                Text("No active themes yet")
-                    .font(.siftCallout)
-                    .foregroundStyle(Color.siftSubtle)
-                    .padding(.top, DS.Spacing.xs)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: DS.Spacing.sm) {
-                        ForEach(themes) { theme in
-                            Button {
-                                onSelect(theme.id)
-                            } label: {
-                                Text(theme.title)
-                                    .font(.siftCallout)
-                                    .foregroundStyle(Color.siftInk)
-                                    .padding(.vertical, DS.Spacing.xs)
-                                    .padding(.horizontal, DS.Spacing.sm)
-                                    .background(Color.siftInk.opacity(0.06), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, DS.Spacing.xs)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            Button(action: onDismiss) {
-                Text("Skip")
-                    .font(.siftCallout)
-                    .foregroundStyle(Color.siftInk)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, DS.Spacing.sm)
+        Button(action: action) {
+            Text(title)
+                .font(isActive ? .siftCaptionBold : .siftCaption)
+                .foregroundStyle(isActive ? Color.siftInk : Color.siftSubtle)
+                .tracking(isActive ? SiftTracking.captionBold : SiftTracking.captionRegular)
+                .padding(.vertical, 4)
+                .padding(.horizontal, DS.Spacing.sm)
+                .background(isActive ? Color.siftCard : Color.clear, in: Capsule())
+                .overlay(
+                    Capsule()
+                        .strokeBorder(Color.siftDivider, lineWidth: 1)
+                )
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.horizontal, DS.Spacing.md)
-        .padding(.top, DS.Spacing.sm)
-        .padding(.bottom, DS.Spacing.md)
-        .background(Color.siftSurface)
+        .buttonStyle(.plain)
     }
 }
 

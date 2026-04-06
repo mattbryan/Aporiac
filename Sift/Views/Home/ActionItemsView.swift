@@ -30,7 +30,7 @@ struct ActionItemsView: View {
                         } label: {
                             Image(systemName: "checkmark")
                         }
-                        .tint(Color.siftGem)
+                        .tint(Color.siftAccent)
                     }
                 }
         }
@@ -50,25 +50,32 @@ struct ActionItemsView: View {
     }
 
     private func itemRow(_ item: ActionItem) -> some View {
-        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+        HStack(alignment: .center, spacing: 0) {
             Button {
                 withAnimation(DS.animationSlow) {
                     item.completed ? viewModel.uncomplete(item) : viewModel.complete(item)
                 }
             } label: {
-                ZStack {
-                    Circle()
-                        .strokeBorder(Color.siftSubtle, lineWidth: 1.5)
-                        .opacity(item.completed ? 0 : 1)
+                HStack(spacing: 0) {
+                    ZStack {
+                        Circle()
+                            .strokeBorder(Color.siftSubtle, lineWidth: 1.5)
+                            .opacity(item.completed ? 0 : 1)
 
-                    Circle()
-                        .fill(Color.siftInk)
-                        .opacity(item.completed ? 1 : 0)
+                        Circle()
+                            .fill(Color.siftInk)
+                            .opacity(item.completed ? 1 : 0)
+                    }
+                    .frame(width: 24, height: 24)
+                    Color.clear
+                        .frame(width: DS.Spacing.sm)
+                        .contentShape(Rectangle())
                 }
-                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
                 .animation(DS.animationSlow, value: item.completed)
             }
             .buttonStyle(.plain)
+            .disabled(viewModel.completionSyncInFlightIDs.contains(item.id))
 
             TextField(
                 "",

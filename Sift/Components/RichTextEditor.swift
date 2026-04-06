@@ -1,31 +1,6 @@
 import SwiftUI
 import UIKit
 
-// MARK: - TextHighlight
-
-/// A ranged highlight applied to journal text — either a gem (kept) or an action item.
-internal struct TextHighlight: Identifiable, Equatable, Sendable {
-    enum Kind: String, Codable, Sendable {
-        case gem
-        case action
-    }
-
-    let id: UUID
-    var range: NSRange
-    var kind: Kind
-}
-
-// MARK: - HighlightTrigger
-
-/// A reference type the parent view holds to imperatively trigger a highlight on a specific editor.
-internal final class HighlightTrigger: @unchecked Sendable {
-    fileprivate var apply: ((TextHighlight.Kind) -> Void)?
-
-    func fire(_ kind: TextHighlight.Kind) {
-        apply?(kind)
-    }
-}
-
 // MARK: - RichTextListMode
 
 internal enum RichTextListMode: Sendable {
@@ -38,13 +13,10 @@ internal enum RichTextListMode: Sendable {
 
 internal struct RichTextEditor: UIViewRepresentable {
     @Binding var text: String
-    @Binding var highlights: [TextHighlight]
     var placeholder: String
     var textColor: Color = .siftInk
     var listMode: RichTextListMode = .none
-    var trigger: HighlightTrigger? = nil
-    var onSelectionChanged: ((Bool) -> Void)? = nil
-    var onHighlightAdded: (TextHighlight) -> Void
+    var onSelectionChanged: ((Bool, NSRange) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -55,7 +27,7 @@ internal struct RichTextEditor: UIViewRepresentable {
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
         textView.textColor = UIColor(textColor)
-        textView.tintColor = UIColor(Color.siftGem)
+        textView.tintColor = UIColor(Color.siftAccent)
         textView.font = RichTextEditor.baseFont
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
@@ -82,67 +54,64 @@ internal struct RichTextEditor: UIViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.placeholderLabel = placeholderLabel
 
-        trigger?.apply = { [weak coordinator = context.coordinator] kind in
-            coordinator?.applyHighlight(kind: kind)
-        }
-
-        context.coordinator.applyFullContent(text: text, highlights: highlights, textColor: UIColor(textColor))
-        context.coordinator.syncState(text: text, highlights: highlights, textColor: UIColor(textColor))
+        context.coordinator.applyFullContent(text: text, textColor: UIColor(textColor))
+        context.coordinator.syncState(text: text, textColor: UIColor(textColor))
         context.coordinator.refreshPlaceholder(placeholder: placeholder, isEmpty: text.isEmpty)
 
         return textView
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: GrowingTextView, context: Context) -> CGSize? {
-        let width = proposal.width ?? UIScreen.main.bounds.width
-        let fitted = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: width, height: max(fitted.height, 44))
+        let width = proposal.width
+            ?? uiView.window?.windowScene?.screen.bounds.width
+            ?? 375
+        let textHeight = uiView.sizeThatFits(
+            CGSize(width: width, height: .greatestFiniteMagnitude)
+        ).height
+        let placeholderHeight: CGFloat
+        if let label = uiView.subviews.compactMap({ $0 as? UILabel }).first, !label.isHidden {
+            placeholderHeight = label.sizeThatFits(
+                CGSize(width: width, height: .greatestFiniteMagnitude)
+            ).height
+        } else {
+            placeholderHeight = 0
+        }
+        return CGSize(width: width, height: max(textHeight, placeholderHeight, 44))
     }
 
     func updateUIView(_ uiView: GrowingTextView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
 
-        // Re-register trigger in case the view was recreated
-        trigger?.apply = { [weak coordinator] kind in
-            coordinator?.applyHighlight(kind: kind)
-        }
-
         let uiTextColor = UIColor(textColor)
         let tvText = uiView.text ?? ""
 
-        // Placeholder only needs updating if the value changed
         if coordinator.lastPlaceholder != placeholder || coordinator.lastTextEmpty != text.isEmpty {
             coordinator.refreshPlaceholder(placeholder: placeholder, isEmpty: text.isEmpty)
             coordinator.lastPlaceholder = placeholder
             coordinator.lastTextEmpty = text.isEmpty
         }
 
-        // Full content replace — only when text was externally changed (e.g. loaded from Supabase)
         if text != tvText {
-            coordinator.applyFullContent(text: text, highlights: highlights, textColor: uiTextColor)
-            coordinator.syncState(text: text, highlights: highlights, textColor: uiTextColor)
+            coordinator.applyFullContent(text: text, textColor: uiTextColor)
+            coordinator.syncState(text: text, textColor: uiTextColor)
             uiView.typingAttributes = Self.baseTypingAttributes(textColor: uiTextColor)
             uiView.invalidateIntrinsicContentSize()
             return
         }
 
-        // Visual-only pass — highlights or color changed, plain text is the same
-        let newKey = Self.highlightsKey(highlights)
         let colorMatch = coordinator.lastSyncedTextColor.map { $0.isEqual(uiTextColor) } ?? false
+        guard !colorMatch else { return }
 
-        guard newKey != coordinator.lastHighlightsKey || !colorMatch else { return }
-
-        coordinator.reapplyVisualAttributes(text: text, highlights: highlights, textColor: uiTextColor)
-        coordinator.lastHighlightsKey = newKey
-        coordinator.lastSyncedTextColor = uiTextColor
+        coordinator.applyFullContent(text: text, textColor: uiTextColor)
+        coordinator.syncState(text: text, textColor: uiTextColor)
         uiView.typingAttributes = Self.baseTypingAttributes(textColor: uiTextColor)
         uiView.invalidateIntrinsicContentSize()
     }
 
     fileprivate static let baseFont: UIFont = UIFont.systemFont(ofSize: 17, weight: .regular)
 
-    /// Plain-text bullet + space — stored verbatim so highlights and Supabase stay aligned with `String` offsets.
+    /// Plain-text bullet + space — stored verbatim so Supabase stays aligned with `String` offsets.
     fileprivate static let bulletPrefix = "• "
 
     fileprivate static func bulletizeMultilineInsertion(_ raw: String) -> String {
@@ -161,28 +130,6 @@ internal struct RichTextEditor: UIViewRepresentable {
         ]
     }
 
-    fileprivate static func highlightsKey(_ items: [TextHighlight]) -> String {
-        items
-            .map { "\($0.id.uuidString)|\($0.range.location)|\($0.range.length)|\($0.kind.rawValue)" }
-            .sorted()
-            .joined(separator: "#")
-    }
-
-    fileprivate static func attributes(for kind: TextHighlight.Kind) -> [NSAttributedString.Key: Any] {
-        switch kind {
-        case .gem:
-            return [
-                .foregroundColor: UIColor(Color.siftGem),
-                .backgroundColor: UIColor(Color.siftGemBackground),
-            ]
-        case .action:
-            return [
-                .foregroundColor: UIColor(Color.siftAction),
-                .backgroundColor: UIColor(Color.siftActionBackground),
-            ]
-        }
-    }
-
     // MARK: - Coordinator
 
     @MainActor
@@ -191,7 +138,6 @@ internal struct RichTextEditor: UIViewRepresentable {
         fileprivate weak var textView: GrowingTextView?
         fileprivate weak var placeholderLabel: UILabel?
 
-        fileprivate var lastHighlightsKey: String = ""
         fileprivate var lastSyncedPlainText: String = ""
         fileprivate var lastSyncedTextColor: UIColor?
         fileprivate var lastPlaceholder: String = ""
@@ -211,98 +157,20 @@ internal struct RichTextEditor: UIViewRepresentable {
             }
         }
 
-        fileprivate func syncState(text: String, highlights: [TextHighlight], textColor: UIColor) {
+        fileprivate func syncState(text: String, textColor: UIColor) {
             lastSyncedPlainText = text
-            lastHighlightsKey = RichTextEditor.highlightsKey(highlights)
             lastSyncedTextColor = textColor
         }
 
-        fileprivate func applyFullContent(text: String, highlights: [TextHighlight], textColor: UIColor) {
+        fileprivate func applyFullContent(text: String, textColor: UIColor) {
             guard let textView else { return }
             let baseAttrs: [NSAttributedString.Key: Any] = [
                 .font: RichTextEditor.baseFont,
                 .foregroundColor: textColor,
             ]
-            let storage = NSMutableAttributedString(string: text, attributes: baseAttrs)
-            for highlight in highlights {
-                let r = highlight.range
-                guard r.location >= 0, r.length > 0, NSMaxRange(r) <= storage.length else { continue }
-                var attrs = RichTextEditor.attributes(for: highlight.kind)
-                attrs[.font] = RichTextEditor.baseFont
-                storage.addAttributes(attrs, range: r)
-            }
-            textView.attributedText = storage
+            textView.attributedText = NSAttributedString(string: text, attributes: baseAttrs)
             textView.textColor = textColor
             textView.font = RichTextEditor.baseFont
-        }
-
-        fileprivate func reapplyVisualAttributes(text: String, highlights: [TextHighlight], textColor: UIColor) {
-            guard let textView else { return }
-            let storage = textView.textStorage
-            let fullLen = storage.length
-            guard fullLen == (text as NSString).length else {
-                applyFullContent(text: text, highlights: highlights, textColor: textColor)
-                return
-            }
-
-            let baseFont = RichTextEditor.baseFont
-            let valid = highlights
-                .filter { $0.range.location >= 0 && $0.range.length > 0 && NSMaxRange($0.range) <= fullLen }
-                .sorted { $0.range.location < $1.range.location }
-
-            storage.beginEditing()
-            let fullRange = NSRange(location: 0, length: fullLen)
-            storage.addAttribute(.font, value: baseFont, range: fullRange)
-            storage.addAttribute(.foregroundColor, value: textColor, range: fullRange)
-            storage.removeAttribute(.backgroundColor, range: fullRange)
-
-            var cursor = 0
-            for h in valid {
-                let r = h.range
-                if r.location > cursor {
-                    let gap = NSRange(location: cursor, length: r.location - cursor)
-                    storage.addAttribute(.foregroundColor, value: textColor, range: gap)
-                    storage.removeAttribute(.backgroundColor, range: gap)
-                }
-                var attrs = RichTextEditor.attributes(for: h.kind)
-                attrs[.font] = baseFont
-                storage.addAttributes(attrs, range: r)
-                cursor = NSMaxRange(r)
-            }
-            if cursor < fullLen {
-                let tail = NSRange(location: cursor, length: fullLen - cursor)
-                storage.addAttribute(.foregroundColor, value: textColor, range: tail)
-                storage.removeAttribute(.backgroundColor, range: tail)
-            }
-            storage.endEditing()
-            textView.textColor = textColor
-            textView.font = baseFont
-        }
-
-        fileprivate func applyHighlight(kind: TextHighlight.Kind) {
-            guard let textView else { return }
-            let range = textView.selectedRange
-            guard range.length > 0 else { return }
-            let len = (textView.text as NSString).length
-            guard NSMaxRange(range) <= len else { return }
-
-            var attrs = RichTextEditor.attributes(for: kind)
-            attrs[.font] = RichTextEditor.baseFont
-            let highlight = TextHighlight(id: UUID(), range: range, kind: kind)
-
-            textView.textStorage.beginEditing()
-            textView.textStorage.addAttributes(attrs, range: range)
-            textView.textStorage.endEditing()
-
-            parent.onHighlightAdded(highlight)
-            textView.selectedTextRange = nil
-
-            lastSyncedPlainText = textView.text ?? ""
-            lastHighlightsKey = RichTextEditor.highlightsKey(parent.highlights)
-            lastSyncedTextColor = UIColor(parent.textColor)
-            textView.invalidateIntrinsicContentSize()
-
-            parent.onSelectionChanged?(false)
         }
 
         // MARK: UITextViewDelegate
@@ -320,14 +188,17 @@ internal struct RichTextEditor: UIViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
-            let hasSelection = textView.selectedRange.length > 0
-            // Reset typing attributes to plain whenever cursor moves to a non-selection position
+            let range = textView.selectedRange
+            let hasSelection = range.length > 0
             if !hasSelection {
                 textView.typingAttributes = RichTextEditor.baseTypingAttributes(textColor: UIColor(parent.textColor))
             }
-            guard hasSelection != lastHadSelection else { return }
+            guard hasSelection != lastHadSelection else {
+                parent.onSelectionChanged?(hasSelection, range)
+                return
+            }
             lastHadSelection = hasSelection
-            parent.onSelectionChanged?(hasSelection)
+            parent.onSelectionChanged?(hasSelection, range)
         }
 
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -376,11 +247,15 @@ final class GrowingTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Update placeholder label width without triggering a layout loop
+        var widthChanged = false
         for case let label as UILabel in subviews {
             if label.preferredMaxLayoutWidth != bounds.width {
                 label.preferredMaxLayoutWidth = bounds.width
+                widthChanged = true
             }
+        }
+        if widthChanged {
+            invalidateIntrinsicContentSize()
         }
     }
 
@@ -388,9 +263,17 @@ final class GrowingTextView: UITextView {
         guard bounds.width > 0 else {
             return CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
         }
-        let fitted = sizeThatFits(
+        let textHeight = sizeThatFits(
             CGSize(width: bounds.width, height: CGFloat.greatestFiniteMagnitude)
-        )
-        return CGSize(width: UIView.noIntrinsicMetric, height: fitted.height)
+        ).height
+        let placeholderHeight: CGFloat
+        if let label = subviews.compactMap({ $0 as? UILabel }).first, !label.isHidden {
+            placeholderHeight = label.sizeThatFits(
+                CGSize(width: bounds.width, height: .greatestFiniteMagnitude)
+            ).height
+        } else {
+            placeholderHeight = 0
+        }
+        return CGSize(width: UIView.noIntrinsicMetric, height: max(textHeight, placeholderHeight))
     }
 }

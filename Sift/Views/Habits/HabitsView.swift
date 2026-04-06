@@ -12,14 +12,14 @@ struct HabitsView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Habits")
-                    .font(.siftTitle)
+                    .siftTextStyle(.h1Medium)
                     .foregroundStyle(Color.siftInk)
                 Spacer()
                 Button {
                     showCreateSheet = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.siftBodyMedium)
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(Color.siftInk)
                         .frame(width: 44, height: 44)
                 }
@@ -27,11 +27,20 @@ struct HabitsView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, DS.Spacing.md)
-            .padding(.bottom, 0)
 
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if viewModel.activeHabits.isEmpty {
+                    if viewModel.isLoading {
+                        SiftSkeletonShimmer {
+                            ForEach(0..<5, id: \.self) { _ in
+                                SiftListRowSkeleton()
+                                Rectangle()
+                                    .fill(Color.siftDivider)
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 20)
+                            }
+                        }
+                    } else if viewModel.activeHabits.isEmpty {
                         Text("No habits yet.\nAdd one to begin tracking.")
                             .font(.siftCallout)
                             .foregroundStyle(Color.siftSubtle)
@@ -43,11 +52,14 @@ struct HabitsView: View {
                                 .onTapGesture {
                                     selectedHabit = habit
                                 }
-                            Divider().padding(.horizontal, 20)
+                            Rectangle()
+                                .fill(Color.siftDivider)
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
                         }
                     }
 
-                    if !viewModel.archivedHabits.isEmpty {
+                    if !viewModel.isLoading && !viewModel.archivedHabits.isEmpty {
                         Button {
                             showArchived.toggle()
                         } label: {
@@ -69,7 +81,10 @@ struct HabitsView: View {
                     if showArchived {
                         ForEach(viewModel.archivedHabits) { habit in
                             HabitRow(habit: habit, log: nil, archived: true)
-                            Divider().padding(.horizontal, 20)
+                            Rectangle()
+                                .fill(Color.siftDivider)
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
                         }
                     }
                 }
@@ -134,6 +149,7 @@ struct HabitsView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, DS.Spacing.md)
+            .contentShape(Rectangle())
         }
 
         private static func logLabel(for log: HabitLog?) -> String {
@@ -154,10 +170,10 @@ struct HabitsView: View {
                 return Color.siftInk.opacity(0.12)
             }
             if abs(log.credit - 0.5) < 0.01 {
-                return Color.siftGem.opacity(0.5)
+                return Color.siftAccent.opacity(0.5)
             }
             if abs(log.credit - 1.0) < 0.01 {
-                return Color.siftGem
+                return Color.siftAccent
             }
             return Color.siftInk.opacity(0.12)
         }

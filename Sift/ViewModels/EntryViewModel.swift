@@ -6,181 +6,84 @@ import Foundation
 final class EntryViewModel {
     var gratitudeText: String = ""
     var contentText: String = ""
-    var gratitudeHighlights: [TextHighlight] = []
-    var contentHighlights: [TextHighlight] = []
-    /// Action items marked complete that belong to the loaded entry (for the entry screen).
-    private(set) var completedActionsForEntry: [ActionItem] = []
 
     private(set) var currentEntry: Entry?
+    /// `true` while the primary entry payload (text) for the current destination is loading.
+    private(set) var isEntryContentLoading = true
     private(set) var dailyPrompt: String = "What's on your mind?"
     private(set) var gemViewModel = GemViewModel()
 
     var reviewPrompt: String? = nil
 
+    /// Theme IDs selected on the pre-entry screen; passed into the daily prompt when starting the writing phase.
+    var selectedThemeIDs: Set<UUID> = []
+
     var activeThemes: [Theme] {
         gemViewModel.allThemes
     }
 
-    /// When non-nil, the theme-picker sheet should show for this newly saved gem.
-    private(set) var pendingThemePickerGemID: UUID? = nil
+    func toggleTheme(_ id: UUID) {
+        var next = selectedThemeIDs
+        if next.contains(id) {
+            next.remove(id)
+        } else {
+            next.insert(id)
+        }
+        selectedThemeIDs = next
+    }
+
+    private var selectedThemeTitles: [String] {
+        activeThemes
+            .filter { selectedThemeIDs.contains($0.id) }
+            .map(\.title)
+    }
+
+    /// Fetches the contextual daily prompt (with selected focus themes) before revealing the main writing surface.
+    func prepareWritingPhase() async {
+        let raw = UserDefaults.standard.string(forKey: "selectedPhilosophies") ?? "stoicism"
+        let selected = Set(raw.split(separator: ",").compactMap { Philosophy(rawValue: String($0)) })
+        let philosophy = Philosophy.todaysPhilosophy(from: selected)
+        dailyPrompt = await AIService.shared.dailyPrompt(themes: selectedThemeTitles, philosophy: philosophy)
+    }
+
     private var saveTask: Task<Void, Never>?
     private var service: SupabaseService { .shared }
+    /// When true, `scheduleAutosave()` is a no-op (e.g. `contentText` patched to match Supabase after a Home toggle).
+    private var suppressScheduleAutosaveForRemoteActionPatch = false
 
-    // MARK: Highlights
+    /// Strips `> ` from the line containing the selection; next save sync removes the gem row.
+    func removeGemAtSelection(_ selectionRange: NSRange) {
+        let ns = contentText as NSString
+        guard selectionRange.location < ns.length else { return }
+        var lineStart = 0
+        var lineEnd = 0
+        var contentsEnd = 0
+        ns.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentsEnd,
+                        for: NSRange(location: selectionRange.location, length: 0))
+        let lineContents = ns.substring(with: NSRange(location: lineStart, length: contentsEnd - lineStart))
+        guard lineContents.hasPrefix("> ") else { return }
 
-    func addHighlight(_ highlight: TextHighlight, section: EntrySection) {
-        switch section {
-        case .gratitude: gratitudeHighlights.append(highlight)
-        case .content: contentHighlights.append(highlight)
-        }
-        Task { @MainActor in
-            await persistHighlight(highlight, section: section)
-        }
+        let mutable = NSMutableString(string: contentText)
+        let prefixRange = NSRange(location: lineStart, length: 2)
+        mutable.replaceCharacters(in: prefixRange, with: "")
+        contentText = mutable as String
+        scheduleAutosave()
     }
 
-    func dismissThemePicker() {
-        pendingThemePickerGemID = nil
-    }
+    // MARK: Markdown entity sync (post-save)
 
-    func associateTheme(themeID: UUID) async {
-        guard let gemID = pendingThemePickerGemID else { return }
-        pendingThemePickerGemID = nil
-        do {
-            try await gemViewModel.addTheme(themeID: themeID, toGemID: gemID)
-        } catch {
-            print("[Entry] Failed to associate theme: \(error)")
-        }
-    }
-
-    private func persistHighlight(_ highlight: TextHighlight, section: EntrySection) async {
-        guard let entry = currentEntry, let userID = service.currentUser?.id else {
-            print("[Entry] persistHighlight skipped — missing entry or currentUser")
-            return
-        }
-
-        let sourceText = section == .gratitude ? gratitudeText : contentText
-        let nsSource = sourceText as NSString
-        guard highlight.range.location >= 0,
-              highlight.range.length > 0,
-              NSMaxRange(highlight.range) <= nsSource.length else { return }
-
-        let content = nsSource.substring(with: highlight.range)
-
-        switch highlight.kind {
-        case .gem:
-            let offset = section == .content ? (gratitudeText as NSString).length + 1 : 0
-            let rangeStart = highlight.range.location + offset
-            let rangeEnd = rangeStart + highlight.range.length
-            let insert = GemInsert(
-                id: highlight.id,
-                userID: userID,
-                entryID: entry.id,
-                content: content,
-                rangeStart: rangeStart,
-                rangeEnd: rangeEnd
-            )
-            do {
-                try await service.client.from("gems").insert(insert).execute()
-            } catch {
-                print("[Entry] Failed to persist gem: \(error)")
-                return
-            }
-            do {
-                try await service.client
-                    .from("entries")
-                    .update(HasGemUpdate(hasGem: true))
-                    .eq("id", value: entry.id.uuidString)
-                    .execute()
-                if var updated = currentEntry {
-                    updated.hasGem = true
-                    currentEntry = updated
-                }
-            } catch {
-                print("[Entry] Failed to update entry has_gem: \(error)")
-            }
-            pendingThemePickerGemID = highlight.id
-            Task {
-                await generateAndStoreThread()
-            }
-
-        case .action:
-            let offset = section == .content ? (gratitudeText as NSString).length + 1 : 0
-            let rangeStart = highlight.range.location + offset
-            let rangeEnd = rangeStart + highlight.range.length
-            let withRanges = ActionItemInsert(
-                id: highlight.id,
-                userID: userID,
-                entryID: entry.id,
-                content: content,
-                rangeStart: rangeStart,
-                rangeEnd: rangeEnd
-            )
-            do {
-                try await service.client.from("action_items").insert(withRanges).execute()
-            } catch {
-                let legacy = ActionItemInsertWithoutRanges(
-                    id: highlight.id,
-                    userID: userID,
-                    entryID: entry.id,
-                    content: content
-                )
-                do {
-                    try await service.client.from("action_items").insert(legacy).execute()
-                    print("[Entry] Action item saved without highlight ranges (add range_start/range_end in Supabase for persisted highlights).")
-                } catch {
-                    print("[Entry] Failed to persist action item: \(error)")
-                }
-            }
-        }
-    }
-
-    private func generateAndStoreThread() async {
-        guard let entry = currentEntry else { return }
-        let entryID = entry.id
-
-        let gems: [Gem]
-        do {
-            gems = try await service.client
-                .from("gems")
-                .select()
-                .eq("entry_id", value: entryID.uuidString)
-                .order("created_at")
-                .execute()
-                .value
-        } catch {
-            print("[Entry] Failed to fetch gems for thread: \(error)")
-            return
-        }
-
-        guard gems.count >= 2 else { return }
-
-        let contents = gems.map(\.content)
-        guard let sentence = await AIService.shared.gemThread(gems: contents) else { return }
-        let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        do {
-            try await service.client
-                .from("gems")
-                .update(ThreadUpdate(thread: trimmed))
-                .eq("entry_id", value: entryID.uuidString)
-                .execute()
-        } catch {
-            print("[Entry] Failed to persist gem thread: \(error)")
-        }
-    }
-
-    private func loadHighlights() async {
+    /// v1: Gem rows are keyed by content string. Editing `> old` to `> new` deletes the old row and inserts a new id — theme links on the old row are lost.
+    private func syncMarkdownEntities() async {
         guard let entry = currentEntry, let userID = service.currentUser?.id else { return }
+        let parsed = EntryParser.parse(contentText)
+        await syncGems(parsed.gems, entry: entry, userID: userID)
+        await syncActions(parsed.actions, entry: entry, userID: userID)
+        await updateHasGem(hasGem: !parsed.gems.isEmpty, entry: entry)
+    }
 
-        let gratLen = (gratitudeText as NSString).length
-        let separator = 1
-
-        gratitudeHighlights = []
-        contentHighlights = []
-
+    private func syncGems(_ parsedGems: [ParsedGem], entry: Entry, userID: UUID) async {
         do {
-            let gems: [Gem] = try await service.client
+            let existing: [Gem] = try await service.client
                 .from("gems")
                 .select()
                 .eq("entry_id", value: entry.id.uuidString)
@@ -188,22 +91,93 @@ final class EntryViewModel {
                 .execute()
                 .value
 
-            for gem in gems {
-                mapCombinedRangeToSections(
-                    id: gem.id,
-                    rangeStart: gem.rangeStart,
-                    rangeEnd: gem.rangeEnd,
-                    gratLen: gratLen,
-                    separator: separator,
-                    kind: .gem
-                )
-            }
-        } catch {
-            print("[Entry] Failed to load gems: \(error)")
-        }
+            let existingContents = Set(existing.map(\.content))
+            let parsedContents = Set(parsedGems.map(\.content))
 
+            let toDelete = existing.filter { !parsedContents.contains($0.content) }
+            for gem in toDelete {
+                do {
+                    try await service.client
+                        .from("gems")
+                        .delete()
+                        .eq("id", value: gem.id.uuidString)
+                        .execute()
+                } catch {
+                    print("[Entry] syncGems delete failed: \(error)")
+                }
+            }
+
+            let toInsert = parsedGems.filter { !existingContents.contains($0.content) }
+            for parsedGem in toInsert {
+                let gemID = UUID()
+                let (rangeStart, rangeEnd) = utf16LineRange(lineIndex: parsedGem.lineIndex, in: contentText)
+                let insert = GemInsert(
+                    id: gemID,
+                    userID: userID,
+                    entryID: entry.id,
+                    content: parsedGem.content,
+                    rangeStart: rangeStart,
+                    rangeEnd: rangeEnd
+                )
+                do {
+                    try await service.client
+                        .from("gems")
+                        .insert(insert)
+                        .execute()
+                    await linkNewGemToEntryThemes(gemID: gemID)
+                } catch {
+                    print("[Entry] syncGems insert failed: \(error)")
+                }
+            }
+
+            try? await gemViewModel.load()
+        } catch {
+            print("[Entry] syncGems failed: \(error)")
+        }
+    }
+
+    /// UTF-16 offsets of the gem line within `contentText` (matches legacy `range_start` / `range_end` expectations).
+    private func utf16LineRange(lineIndex: Int, in text: String) -> (start: Int, end: Int) {
+        let ns = text as NSString
+        guard ns.length > 0, lineIndex >= 0 else { return (0, 0) }
+        var lineNumber = 0
+        var location = 0
+        while location <= ns.length {
+            let probe = min(location, max(0, ns.length - 1))
+            var lineStart = 0
+            var lineEnd = 0
+            var contentsEnd = 0
+            ns.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentsEnd,
+                            for: NSRange(location: probe, length: 0))
+            if lineNumber == lineIndex {
+                return (lineStart, contentsEnd)
+            }
+            lineNumber += 1
+            if lineEnd >= ns.length { break }
+            location = lineEnd
+        }
+        return (0, 0)
+    }
+
+    /// Links a newly synced gem to **Today's Focus** themes (`selectedThemeIDs`) — no modal; user opts in via entry chips.
+    private func linkNewGemToEntryThemes(gemID: UUID) async {
+        guard !selectedThemeIDs.isEmpty else { return }
+        for themeID in selectedThemeIDs {
+            do {
+                try await service.client
+                    .from("gem_themes")
+                    .insert(GemThemeLinkInsert(gemID: gemID, themeID: themeID))
+                    .execute()
+            } catch {
+                // Duplicate (unique constraint) or RLS — non-fatal.
+                print("[Entry] gem_themes link skipped for gem \(gemID) theme \(themeID): \(error)")
+            }
+        }
+    }
+
+    private func syncActions(_ parsedActions: [ParsedAction], entry: Entry, userID: UUID) async {
         do {
-            let entryActions: [ActionItem] = try await service.client
+            let existing: [ActionItem] = try await service.client
                 .from("action_items")
                 .select()
                 .eq("entry_id", value: entry.id.uuidString)
@@ -211,46 +185,78 @@ final class EntryViewModel {
                 .execute()
                 .value
 
-            completedActionsForEntry = entryActions
-                .filter(\.completed)
-                .sorted { $0.createdAt < $1.createdAt }
+            let existingByContent = existing.reduce(into: [String: ActionItem]()) { $0[$1.content] = $1 }
+            let parsedByContent = parsedActions.reduce(into: [String: ParsedAction]()) { $0[$1.content] = $1 }
 
-            for action in entryActions {
-                guard let rs = action.rangeStart, let re = action.rangeEnd, re > rs else { continue }
-                mapCombinedRangeToSections(
-                    id: action.id,
-                    rangeStart: rs,
-                    rangeEnd: re,
-                    gratLen: gratLen,
-                    separator: separator,
-                    kind: .action
+            let toDelete = existing.filter { parsedByContent[$0.content] == nil }
+            for action in toDelete {
+                do {
+                    try await service.client
+                        .from("action_items")
+                        .delete()
+                        .eq("id", value: action.id.uuidString)
+                        .execute()
+                } catch {
+                    print("[Entry] syncActions delete failed: \(error)")
+                }
+            }
+
+            let toInsert = parsedActions.filter { existingByContent[$0.content] == nil }
+            let now = Date()
+            let expiresAt = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
+            for parsedAction in toInsert {
+                let insert = ActionItemInsert(
+                    id: UUID(),
+                    userID: userID,
+                    entryID: entry.id,
+                    content: parsedAction.content,
+                    completed: parsedAction.completed,
+                    createdAt: now,
+                    expiresAt: expiresAt
                 )
+                do {
+                    try await service.client
+                        .from("action_items")
+                        .insert(insert)
+                        .execute()
+                } catch {
+                    print("[Entry] syncActions insert failed: \(error)")
+                }
+            }
+
+            for parsedAction in parsedActions {
+                guard let existingRow = existingByContent[parsedAction.content],
+                      existingRow.completed != parsedAction.completed else { continue }
+                let completedAt: Date? = parsedAction.completed ? Date() : nil
+                do {
+                    try await service.client
+                        .from("action_items")
+                        .update(ActionCompletionUpdate(completed: parsedAction.completed, completedAt: completedAt))
+                        .eq("id", value: existingRow.id.uuidString)
+                        .execute()
+                } catch {
+                    print("[Entry] syncActions completion update failed: \(error)")
+                }
             }
         } catch {
-            print("[Entry] Failed to load action items for entry: \(error)")
-            completedActionsForEntry = []
+            print("[Entry] syncActions failed: \(error)")
         }
     }
 
-    private func mapCombinedRangeToSections(
-        id: UUID,
-        rangeStart: Int,
-        rangeEnd: Int,
-        gratLen: Int,
-        separator: Int,
-        kind: TextHighlight.Kind
-    ) {
-        if rangeEnd <= gratLen {
-            let range = NSRange(location: rangeStart, length: rangeEnd - rangeStart)
-            let highlight = TextHighlight(id: id, range: range, kind: kind)
-            gratitudeHighlights.append(highlight)
-        } else if rangeStart >= gratLen + separator {
-            let offset = gratLen + separator
-            let loc = rangeStart - offset
-            let len = rangeEnd - rangeStart
-            if loc >= 0 && len > 0 {
-                contentHighlights.append(TextHighlight(id: id, range: NSRange(location: loc, length: len), kind: kind))
+    private func updateHasGem(hasGem: Bool, entry: Entry) async {
+        guard entry.hasGem != hasGem else { return }
+        do {
+            try await service.client
+                .from("entries")
+                .update(HasGemUpdate(hasGem: hasGem))
+                .eq("id", value: entry.id.uuidString)
+                .execute()
+            if var updated = currentEntry {
+                updated.hasGem = hasGem
+                currentEntry = updated
             }
+        } catch {
+            print("[Entry] updateHasGem failed: \(error)")
         }
     }
 
@@ -258,18 +264,26 @@ final class EntryViewModel {
 
     /// Loads today's entry from Supabase, creating one if none exists yet.
     func loadOrCreateTodayEntry() async {
+        isEntryContentLoading = true
+        defer { isEntryContentLoading = false }
+
         guard let userID = service.currentUser?.id else {
+            #if DEBUG
             print("[Entry] No current user — skipping load")
+            #endif
             return
         }
-        print("[Entry] Loading for user \(userID)")
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return }
 
         let formatter = ISO8601DateFormatter()
+
+        #if DEBUG
+        print("[Entry] Loading for user \(userID)")
         print("[Entry] Querying entries between \(formatter.string(from: today)) and \(formatter.string(from: tomorrow))")
+        #endif
 
         do {
             let entries: [Entry] = try await service.client
@@ -278,29 +292,29 @@ final class EntryViewModel {
                 .eq("user_id", value: userID.uuidString)
                 .gte("created_at", value: formatter.string(from: today))
                 .lt("created_at", value: formatter.string(from: tomorrow))
+                .order("created_at", ascending: false)
                 .limit(1)
                 .execute()
                 .value
 
+            #if DEBUG
             print("[Entry] Found \(entries.count) existing entries")
+            #endif
             if let entry = entries.first {
                 currentEntry = entry
                 gratitudeText = entry.gratitudeContent
                 contentText = entry.content
-                await loadHighlights()
                 Task { try? await gemViewModel.load() }
             } else {
+                #if DEBUG
                 print("[Entry] No entry today — creating")
+                #endif
                 try await createEntry(userID: userID)
                 Task { try? await gemViewModel.load() }
             }
 
             if let prompt = reviewPrompt, contentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 contentText = prompt
-            }
-
-            Task {
-                dailyPrompt = await AIService.shared.dailyPrompt()
             }
         } catch {
             print("[Entry] Failed to load: \(error)")
@@ -309,6 +323,9 @@ final class EntryViewModel {
 
     /// Loads a specific entry by ID. Does not create a new entry.
     func loadEntry(id: UUID) async {
+        isEntryContentLoading = true
+        defer { isEntryContentLoading = false }
+
         guard let userID = service.currentUser?.id else { return }
         do {
             let entries: [Entry] = try await service.client
@@ -324,7 +341,6 @@ final class EntryViewModel {
             currentEntry = entry
             gratitudeText = entry.gratitudeContent
             contentText = entry.content
-            await loadHighlights()
             Task { try? await gemViewModel.load() }
         } catch {
             print("[Entry] Failed to load entry \(id): \(error)")
@@ -343,22 +359,38 @@ final class EntryViewModel {
             expiresAt: expiry,
             hasGem: false
         )
+        #if DEBUG
         print("[Entry] Inserting entry \(entry.id)")
+        #endif
         try await service.client
             .from("entries")
             .insert(entry)
             .execute()
+        #if DEBUG
         print("[Entry] Insert succeeded")
+        #endif
         currentEntry = entry
-        gratitudeHighlights = []
-        contentHighlights = []
-        completedActionsForEntry = []
     }
 
     // MARK: Autosave
 
+    /// Updates the in-memory `contentText` to reflect a completion toggle that happened outside the entry.
+    /// This keeps the open editor current without scheduling an autosave (Supabase already matches).
+    func applyActionCompletionUpdate(content: String, completed: Bool) {
+        guard let next = EntryMarkdownActionSync.setTaskCompletion(
+            in: contentText,
+            taskBody: content,
+            completed: completed
+        ), next != contentText else { return }
+
+        suppressScheduleAutosaveForRemoteActionPatch = true
+        contentText = next
+        suppressScheduleAutosaveForRemoteActionPatch = false
+    }
+
     /// Call this whenever text changes — saves after a short debounce.
     func scheduleAutosave() {
+        if suppressScheduleAutosaveForRemoteActionPatch { return }
         saveTask?.cancel()
         saveTask = Task {
             try? await Task.sleep(for: .seconds(1))
@@ -373,12 +405,38 @@ final class EntryViewModel {
         await save()
     }
 
+    /// Reloads the journal body from Supabase when Today updates markdown (e.g. completing a task on the day view).
+    func reloadCurrentEntryBodyFromServerIfNeeded(entryID: UUID) async {
+        guard currentEntry?.id == entryID, let userID = service.currentUser?.id else { return }
+        saveTask?.cancel()
+        do {
+            let rows: [Entry] = try await service.client
+                .from("entries")
+                .select()
+                .eq("user_id", value: userID.uuidString)
+                .eq("id", value: entryID.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            guard let row = rows.first else { return }
+            gratitudeText = row.gratitudeContent
+            contentText = row.content
+            currentEntry = row
+        } catch {
+            print("[Entry] reloadCurrentEntryBodyFromServerIfNeeded failed: \(error)")
+        }
+    }
+
     private func save() async {
         guard let entry = currentEntry else {
+            #if DEBUG
             print("[Entry] Save skipped — no currentEntry")
+            #endif
             return
         }
+        #if DEBUG
         print("[Entry] Saving entry \(entry.id)")
+        #endif
         do {
             try await service.client
                 .from("entries")
@@ -388,19 +446,27 @@ final class EntryViewModel {
                 ))
                 .eq("id", value: entry.id.uuidString)
                 .execute()
+            #if DEBUG
             print("[Entry] Save succeeded")
+            #endif
+            await syncMarkdownEntities()
+            NotificationCenter.default.post(name: .siftJournalEntitiesDidSync, object: nil)
         } catch {
             print("[Entry] Save failed: \(error)")
         }
     }
 }
 
-// MARK: -
-
-enum EntrySection: Sendable {
-    case gratitude
-    case content
+extension Notification.Name {
+    /// Posted after a successful entry save and markdown entity sync so Gems / Today can refresh lists.
+    static let siftJournalEntitiesDidSync = Notification.Name("siftJournalEntitiesDidSync")
+    /// Posted when Today toggles a task tied to an entry; `object` is the entry `UUID`.
+    static let siftEntryBodyUpdatedFromDayView = Notification.Name("siftEntryBodyUpdatedFromDayView")
+    /// Posted when Home toggles an action; `userInfo`: `actionContent`, `completed`, `entryID` (optional `UUID`).
+    static let siftActionCompletionChanged = Notification.Name("com.aporian.sift.actionCompletionChanged")
 }
+
+// MARK: - Update DTOs
 
 private struct EntryContentUpdate: Encodable {
     let gratitudeContent: String
@@ -410,10 +476,6 @@ private struct EntryContentUpdate: Encodable {
         case gratitudeContent = "gratitude_content"
         case content
     }
-}
-
-private struct ThreadUpdate: Encodable {
-    let thread: String
 }
 
 private struct HasGemUpdate: Encodable {
@@ -442,14 +504,25 @@ private struct GemInsert: Encodable {
     }
 }
 
+private struct GemThemeLinkInsert: Encodable {
+    let gemID: UUID
+    let themeID: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case gemID = "gem_id"
+        case themeID = "theme_id"
+    }
+}
+
 private struct ActionItemInsert: Encodable {
     let id: UUID
     let userID: UUID
     let entryID: UUID
     let content: String
-    let completed: Bool = false
-    let rangeStart: Int
-    let rangeEnd: Int
+    let completed: Bool
+    let carriedForward: Bool = false
+    let createdAt: Date
+    let expiresAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -457,24 +530,18 @@ private struct ActionItemInsert: Encodable {
         case entryID = "entry_id"
         case content
         case completed
-        case rangeStart = "range_start"
-        case rangeEnd = "range_end"
+        case carriedForward = "carried_forward"
+        case createdAt = "created_at"
+        case expiresAt = "expires_at"
     }
 }
 
-/// Used when `action_items` has no `range_start` / `range_end` columns yet.
-private struct ActionItemInsertWithoutRanges: Encodable {
-    let id: UUID
-    let userID: UUID
-    let entryID: UUID
-    let content: String
-    let completed: Bool = false
+private struct ActionCompletionUpdate: Encodable {
+    let completed: Bool
+    let completedAt: Date?
 
     enum CodingKeys: String, CodingKey {
-        case id
-        case userID = "user_id"
-        case entryID = "entry_id"
-        case content
         case completed
+        case completedAt = "completed_at"
     }
 }

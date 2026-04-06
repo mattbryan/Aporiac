@@ -10,10 +10,13 @@
 		0EB4664770E4EA66A87BA5AE /* Gem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D0F7C119ACC397D49AACBF9 /* Gem.swift */; };
 		133A5BE3CBF93E478FBE14C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BF6048B2472CAFDC9F2223 /* Theme.swift */; };
 		17B5ABA09A0433128F831DF0 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */; };
+		E1D2C3B4A59687786950101 /* EntryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D2C3B4A59687786950102 /* EntryParser.swift */; };
+		194053DC2F8189DE008093E2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 194053DB2F8189DE008093E2 /* Assets.xcassets */; };
 		199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6AE2F80086D00E9DE0C /* UserSettings.swift */; };
 		199DD6B62F80147A00E9DE0C /* ThemeFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B32F80147A00E9DE0C /* ThemeFormSheet.swift */; };
 		199DD6B72F80147A00E9DE0C /* ThemesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B42F80147A00E9DE0C /* ThemesView.swift */; };
 		199DD6B92F80239B00E9DE0C /* HabitDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B82F80239B00E9DE0C /* HabitDetailView.swift */; };
+		19BCB7712F82C5230046F0C3 /* MarkdownTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */; };
 		1E3A4EAF34BAB0A01DFB2E69 /* ActionItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF5B38C82769CAC6E7176AB /* ActionItemViewModel.swift */; };
 		298E0E7FF27BAE2DC25B6674 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */; };
 		2FB3AF15B4D1133AE5EB398E /* EntryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 782C04E47936E0F9F289A31D /* EntryViewModel.swift */; };
@@ -32,25 +35,54 @@
 		963651A64F9AE1D7E388E534 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24DF29B9AF3D71054B551C6D /* DesignSystem.swift */; };
 		A8F1E2D3C4B5968778695A02 /* GemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1E2D3C4B5968778695A01 /* GemCard.swift */; };
 		A8F1E2D3C4B5968778695A04 /* GemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1E2D3C4B5968778695A03 /* GemsView.swift */; };
+		A91F88B12F90E9DE00E9DE02 /* Philosophy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F88B02F90E9DE00E9DE02 /* Philosophy.swift */; };
 		ACB3FF4F4613AD4A7E0D895C /* HabitLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7666049ED31A071995FE51DB /* HabitLog.swift */; };
 		B1F263FAC2355E22F3E51B13 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437769D3BBD6A800385E0CCD /* HomeViewModel.swift */; };
 		B2284425094A73B6D0A346BC /* ActionItemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 776C99D7A759657D9FBC516F /* ActionItemsView.swift */; };
 		CF617540A17B16BB9E24EF3A /* EntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFAED793F710ADB02E287CD /* EntryView.swift */; };
 		D257288FE57FEB8302C13284 /* Habit.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2E3692F893AEB59704420B /* Habit.swift */; };
+		D2B3C4D5E6F708192A3B4C5D /* CalendarDayHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F708192A3B4C1 /* CalendarDayHomeView.swift */; };
 		D3D051AD77DF88E31C5ED4BD /* SiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943DFDC32F6BE99E05E19275 /* SiftApp.swift */; };
 		E6C6852DAAAF54869CDFF2D0 /* Entry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63B25F2E3A2E6DA35E5D6125 /* Entry.swift */; };
 		F00D50022F8048AA00E9AB02 /* HabitFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D50012F8048AA00E9AB01 /* HabitFormSheet.swift */; };
+		F4D5E6F709293A4B5C6D7E30 /* HomeListInteractions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C4D5E6F708192A3B4C6E20 /* HomeListInteractions.swift */; };
+		FB7R00102F8172C900E9DE01 /* Satoshi-BlackItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD7122F8172C900E9DE0C /* Satoshi-BlackItalic.otf */; };
+		FB7R00202F8172C900E9DE02 /* Satoshi-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD71A2F8172C900E9DE0C /* Satoshi-Regular.otf */; };
+		FB7R00302F8172C900E9DE03 /* Newsreader-Italic-VariableFont_opsz,wght.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD71B2F8173B000E9DE0C /* Newsreader-Italic-VariableFont_opsz,wght.ttf */; };
+		FB7R00402F8172C900E9DE04 /* Newsreader-VariableFont_opsz,wght.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD71C2F8173B000E9DE0C /* Newsreader-VariableFont_opsz,wght.ttf */; };
+		FB7R00502F8172C900E9DE05 /* Satoshi-Black.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD71D2F8173B000E9DE0C /* Satoshi-Black.otf */; };
+		FB7R00602F8172C900E9DE06 /* Satoshi-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD71E2F8173B000E9DE0C /* Satoshi-Bold.otf */; };
+		FB7R00702F8172C900E9DE07 /* Satoshi-BoldItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD71F2F8173B000E9DE0C /* Satoshi-BoldItalic.otf */; };
+		FB7R00802F8172C900E9DE08 /* Satoshi-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD7202F8173B000E9DE0C /* Satoshi-Italic.otf */; };
+		FB7R00902F8172C900E9DE09 /* Satoshi-Light.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD7212F8173B000E9DE0C /* Satoshi-Light.otf */; };
+		FB7R00A02F8172C900E9DE0A /* Satoshi-LightItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD7222F8173B000E9DE0C /* Satoshi-LightItalic.otf */; };
+		FB7R00B02F8172C900E9DE0B /* Satoshi-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD7232F8173B000E9DE0C /* Satoshi-Medium.otf */; };
+		FB7R00C02F8172C900E9DE0C /* Satoshi-MediumItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 199DD7242F8173B000E9DE0C /* Satoshi-MediumItalic.otf */; };
 		FFBD9AAC768502A21E390F28 /* ThemeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B65F29393AA46C922CD7CB /* ThemeViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0B4010C7BA5B6D0C9DFE0520 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		194053DB2F8189DE008093E2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		199DD6AE2F80086D00E9DE0C /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
 		199DD6B22F80147A00E9DE0C /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		199DD6B32F80147A00E9DE0C /* ThemeFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFormSheet.swift; sourceTree = "<group>"; };
 		199DD6B42F80147A00E9DE0C /* ThemesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemesView.swift; sourceTree = "<group>"; };
 		199DD6B82F80239B00E9DE0C /* HabitDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitDetailView.swift; sourceTree = "<group>"; };
+		199DD7122F8172C900E9DE0C /* Satoshi-BlackItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-BlackItalic.otf"; sourceTree = "<group>"; };
+		199DD71A2F8172C900E9DE0C /* Satoshi-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Regular.otf"; sourceTree = "<group>"; };
+		199DD71B2F8173B000E9DE0C /* Newsreader-Italic-VariableFont_opsz,wght.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Italic-VariableFont_opsz,wght.ttf"; sourceTree = "<group>"; };
+		199DD71C2F8173B000E9DE0C /* Newsreader-VariableFont_opsz,wght.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-VariableFont_opsz,wght.ttf"; sourceTree = "<group>"; };
+		199DD71D2F8173B000E9DE0C /* Satoshi-Black.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Black.otf"; sourceTree = "<group>"; };
+		199DD71E2F8173B000E9DE0C /* Satoshi-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Bold.otf"; sourceTree = "<group>"; };
+		199DD71F2F8173B000E9DE0C /* Satoshi-BoldItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-BoldItalic.otf"; sourceTree = "<group>"; };
+		199DD7202F8173B000E9DE0C /* Satoshi-Italic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Italic.otf"; sourceTree = "<group>"; };
+		199DD7212F8173B000E9DE0C /* Satoshi-Light.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Light.otf"; sourceTree = "<group>"; };
+		199DD7222F8173B000E9DE0C /* Satoshi-LightItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-LightItalic.otf"; sourceTree = "<group>"; };
+		199DD7232F8173B000E9DE0C /* Satoshi-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Medium.otf"; sourceTree = "<group>"; };
+		199DD7242F8173B000E9DE0C /* Satoshi-MediumItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-MediumItalic.otf"; sourceTree = "<group>"; };
+		19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextEditor.swift; sourceTree = "<group>"; };
 		1D0F7C119ACC397D49AACBF9 /* Gem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gem.swift; sourceTree = "<group>"; };
 		24DF29B9AF3D71054B551C6D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		2A2A5329070E51736D950FFB /* EntitlementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementService.swift; sourceTree = "<group>"; };
@@ -69,13 +101,17 @@
 		943DFDC32F6BE99E05E19275 /* SiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiftApp.swift; sourceTree = "<group>"; };
 		A8F1E2D3C4B5968778695A01 /* GemCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GemCard.swift; sourceTree = "<group>"; };
 		A8F1E2D3C4B5968778695A03 /* GemsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GemsView.swift; sourceTree = "<group>"; };
+		A91F88B02F90E9DE00E9DE02 /* Philosophy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Philosophy.swift; sourceTree = "<group>"; };
 		BB2375A4C712707FC394A363 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6F708192A3B4C1 /* CalendarDayHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayHomeView.swift; sourceTree = "<group>"; };
 		C3BF6048B2472CAFDC9F2223 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		C6B65F29393AA46C922CD7CB /* ThemeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeViewModel.swift; sourceTree = "<group>"; };
 		D0A82EFF95D94FE10F5901DB /* Sift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEF474F004CFCC71A43FA901 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; };
 		DF2E3692F893AEB59704420B /* Habit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Habit.swift; sourceTree = "<group>"; };
 		DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		E1D2C3B4A59687786950102 /* EntryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryParser.swift; sourceTree = "<group>"; };
+		E3C4D5E6F708192A3B4C6E20 /* HomeListInteractions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeListInteractions.swift; sourceTree = "<group>"; };
 		E97E95A63C68958476FC3BB6 /* ActionItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionItem.swift; sourceTree = "<group>"; };
 		EEF5B38C82769CAC6E7176AB /* ActionItemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionItemViewModel.swift; sourceTree = "<group>"; };
 		F00D50012F8048AA00E9AB01 /* HabitFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitFormSheet.swift; sourceTree = "<group>"; };
@@ -120,6 +156,33 @@
 			path = Themes;
 			sourceTree = "<group>";
 		};
+		199DD70D2F81727400E9DE0C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				199DD70E2F81729A00E9DE0C /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		199DD70E2F81729A00E9DE0C /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				199DD7122F8172C900E9DE0C /* Satoshi-BlackItalic.otf */,
+				199DD71A2F8172C900E9DE0C /* Satoshi-Regular.otf */,
+				199DD71B2F8173B000E9DE0C /* Newsreader-Italic-VariableFont_opsz,wght.ttf */,
+				199DD71C2F8173B000E9DE0C /* Newsreader-VariableFont_opsz,wght.ttf */,
+				199DD71D2F8173B000E9DE0C /* Satoshi-Black.otf */,
+				199DD71E2F8173B000E9DE0C /* Satoshi-Bold.otf */,
+				199DD71F2F8173B000E9DE0C /* Satoshi-BoldItalic.otf */,
+				199DD7202F8173B000E9DE0C /* Satoshi-Italic.otf */,
+				199DD7212F8173B000E9DE0C /* Satoshi-Light.otf */,
+				199DD7222F8173B000E9DE0C /* Satoshi-LightItalic.otf */,
+				199DD7232F8173B000E9DE0C /* Satoshi-Medium.otf */,
+				199DD7242F8173B000E9DE0C /* Satoshi-MediumItalic.otf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 		45CA59FC210B6C618C2FB69C /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -131,6 +194,7 @@
 		65A2178E0C8128CE3E6C21AD /* DayPicker */ = {
 			isa = PBXGroup;
 			children = (
+				C1A2B3C4D5E6F708192A3B4C1 /* CalendarDayHomeView.swift */,
 				38C24883D304EC7973E0ACC2 /* DayPickerView.swift */,
 			);
 			path = DayPicker;
@@ -160,7 +224,9 @@
 		832471A25C3BA8E0A669138D /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */,
 				24DF29B9AF3D71054B551C6D /* DesignSystem.swift */,
+				E3C4D5E6F708192A3B4C6E20 /* HomeListInteractions.swift */,
 				FCA804A32A2E80BBCB018239 /* RichTextEditor.swift */,
 			);
 			path = Components;
@@ -170,6 +236,7 @@
 			isa = PBXGroup;
 			children = (
 				DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */,
+				E1D2C3B4A59687786950102 /* EntryParser.swift */,
 				66796ECFCE6A5A0CC1E9B444 /* AnthropicConfig.swift */,
 				2A2A5329070E51736D950FFB /* EntitlementService.swift */,
 				DEF474F004CFCC71A43FA901 /* SupabaseConfig.swift */,
@@ -206,6 +273,7 @@
 				1D0F7C119ACC397D49AACBF9 /* Gem.swift */,
 				DF2E3692F893AEB59704420B /* Habit.swift */,
 				7666049ED31A071995FE51DB /* HabitLog.swift */,
+				A91F88B02F90E9DE00E9DE02 /* Philosophy.swift */,
 				C3BF6048B2472CAFDC9F2223 /* Theme.swift */,
 			);
 			path = Models;
@@ -235,6 +303,8 @@
 		F98CE90785F999E3B584CF1B /* Sift */ = {
 			isa = PBXGroup;
 			children = (
+				194053DB2F8189DE008093E2 /* Assets.xcassets */,
+				199DD70D2F81727400E9DE0C /* Resources */,
 				0B4010C7BA5B6D0C9DFE0520 /* Info.plist */,
 				7E681D9DBA96E0621032F77B /* App */,
 				832471A25C3BA8E0A669138D /* Components */,
@@ -255,6 +325,7 @@
 			buildPhases = (
 				0195E17015D9C5525CBA2516 /* Sources */,
 				B71A9D2E534F321CC5248C16 /* Frameworks */,
+				FB7RPHASE2F8172C900E9DE00 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -297,17 +368,41 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		FB7RPHASE2F8172C900E9DE00 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				FB7R00302F8172C900E9DE03 /* Newsreader-Italic-VariableFont_opsz,wght.ttf in Resources */,
+				FB7R00402F8172C900E9DE04 /* Newsreader-VariableFont_opsz,wght.ttf in Resources */,
+				FB7R00502F8172C900E9DE05 /* Satoshi-Black.otf in Resources */,
+				FB7R00102F8172C900E9DE01 /* Satoshi-BlackItalic.otf in Resources */,
+				FB7R00602F8172C900E9DE06 /* Satoshi-Bold.otf in Resources */,
+				FB7R00702F8172C900E9DE07 /* Satoshi-BoldItalic.otf in Resources */,
+				194053DC2F8189DE008093E2 /* Assets.xcassets in Resources */,
+				FB7R00802F8172C900E9DE08 /* Satoshi-Italic.otf in Resources */,
+				FB7R00902F8172C900E9DE09 /* Satoshi-Light.otf in Resources */,
+				FB7R00A02F8172C900E9DE0A /* Satoshi-LightItalic.otf in Resources */,
+				FB7R00B02F8172C900E9DE0B /* Satoshi-Medium.otf in Resources */,
+				FB7R00C02F8172C900E9DE0C /* Satoshi-MediumItalic.otf in Resources */,
+				FB7R00202F8172C900E9DE02 /* Satoshi-Regular.otf in Resources */,
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		0195E17015D9C5525CBA2516 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 				17B5ABA09A0433128F831DF0 /* AIService.swift in Sources */,
+				E1D2C3B4A59687786950101 /* EntryParser.swift in Sources */,
 				72777F4256A38BC5BABFE469 /* ActionItem.swift in Sources */,
 				1E3A4EAF34BAB0A01DFB2E69 /* ActionItemViewModel.swift in Sources */,
 				B2284425094A73B6D0A346BC /* ActionItemsView.swift in Sources */,
 				7061D98284CF67FC2CA4FD21 /* AnthropicConfig.swift in Sources */,
+				D2B3C4D5E6F708192A3B4C5D /* CalendarDayHomeView.swift in Sources */,
 				369D802F7D963E05B7A5C168 /* DayPickerView.swift in Sources */,
 				963651A64F9AE1D7E388E534 /* DesignSystem.swift in Sources */,
+				F4D5E6F709293A4B5C6D7E30 /* HomeListInteractions.swift in Sources */,
 				522BAFFB2A776F21E4D8123C /* Entitlement.swift in Sources */,
 				798504966E2846052B355B7D /* EntitlementService.swift in Sources */,
 				E6C6852DAAAF54869CDFF2D0 /* Entry.swift in Sources */,
@@ -321,12 +416,14 @@
 				199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */,
 				D257288FE57FEB8302C13284 /* Habit.swift in Sources */,
 				ACB3FF4F4613AD4A7E0D895C /* HabitLog.swift in Sources */,
+				A91F88B12F90E9DE00E9DE02 /* Philosophy.swift in Sources */,
 				6B768CB048E1CAF96654989A /* HabitViewModel.swift in Sources */,
 				F00D50022F8048AA00E9AB02 /* HabitFormSheet.swift in Sources */,
 				40C551D4E23DF5510D8EDF58 /* HabitsView.swift in Sources */,
 				6815A665E953F56843B39C51 /* HomeView.swift in Sources */,
 				B1F263FAC2355E22F3E51B13 /* HomeViewModel.swift in Sources */,
 				199DD6B62F80147A00E9DE0C /* ThemeFormSheet.swift in Sources */,
+				19BCB7712F82C5230046F0C3 /* MarkdownTextEditor.swift in Sources */,
 				199DD6B72F80147A00E9DE0C /* ThemesView.swift in Sources */,
 				7F4CD71556BD60FE5E6EF409 /* RichTextEditor.swift in Sources */,
 				D3D051AD77DF88E31C5ED4BD /* SiftApp.swift in Sources */,
@@ -346,7 +443,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 3U5T65598X;
 				INFOPLIST_FILE = Sift/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -489,7 +586,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 3U5T65598X;
 				INFOPLIST_FILE = Sift/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

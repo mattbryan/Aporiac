@@ -11,14 +11,14 @@ struct ThemesView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Themes")
-                    .font(.siftTitle)
+                    .siftTextStyle(.h1Medium)
                     .foregroundStyle(Color.siftInk)
                 Spacer()
                 Button {
                     showCreateSheet = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.siftBodyMedium)
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(Color.siftInk)
                         .frame(width: 44, height: 44)
                 }
@@ -26,11 +26,20 @@ struct ThemesView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, DS.Spacing.md)
-            .padding(.bottom, 0)
 
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if viewModel.activeThemes.isEmpty {
+                    if viewModel.isLoading {
+                        SiftSkeletonShimmer {
+                            ForEach(0..<5, id: \.self) { _ in
+                                SiftListRowSkeleton()
+                                Rectangle()
+                                    .fill(Color.siftDivider)
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 20)
+                            }
+                        }
+                    } else if viewModel.activeThemes.isEmpty {
                         Text("No themes yet.\nAdd one to start orienting your practice.")
                             .font(.siftCallout)
                             .foregroundStyle(Color.siftSubtle)
@@ -42,11 +51,14 @@ struct ThemesView: View {
                                 .onTapGesture {
                                     editingTheme = theme
                                 }
-                            Divider().padding(.horizontal, 20)
+                            Rectangle()
+                                .fill(Color.siftDivider)
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
                         }
                     }
 
-                    if !viewModel.archivedThemes.isEmpty {
+                    if !viewModel.isLoading && !viewModel.archivedThemes.isEmpty {
                         Button {
                             showArchived.toggle()
                         } label: {
@@ -68,7 +80,10 @@ struct ThemesView: View {
                     if showArchived {
                         ForEach(viewModel.archivedThemes) { theme in
                             ThemeRow(theme: theme, archived: true)
-                            Divider().padding(.horizontal, 20)
+                            Rectangle()
+                                .fill(Color.siftDivider)
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
                         }
                     }
                 }
@@ -120,11 +135,12 @@ struct ThemesView: View {
                 if !archived {
                     Image(systemName: "chevron.right")
                         .font(.siftCaption)
-                        .foregroundStyle(Color.siftSubtle.opacity(0.5))
+                        .foregroundStyle(Color.siftSubtle)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, DS.Spacing.md)
+            .contentShape(Rectangle())
         }
     }
 }

@@ -15,6 +15,8 @@ struct HabitDetailView: View {
 
     @State private var logs: [HabitLog] = []
     @State private var displayMonth: Date = Calendar.current.startOfMonth(for: Date())
+    @State private var isLoadingCalendar = true
+    @State private var isInitialCalendarLoad = true
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -65,7 +67,7 @@ struct HabitDetailView: View {
 
     private var titleBlock: some View {
         Text(habit.title)
-            .font(.siftTitle)
+            .siftTextStyle(.h1Medium)
             .foregroundStyle(Color.siftInk)
             .padding(.horizontal, 20)
             .padding(.top, DS.Spacing.sm)
@@ -132,9 +134,9 @@ struct HabitDetailView: View {
                 .font(.siftCallout)
                 .foregroundStyle(isSelected ? Color.siftContrastLight : Color.siftInk)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(height: DS.ButtonHeight.medium)
                 .background(
-                    isSelected ? Color.siftGem : Color.siftInk.opacity(0.08),
+                    isSelected ? Color.siftAccent : Color.siftInk.opacity(0.08),
                     in: RoundedRectangle(cornerRadius: DS.Radius.sm)
                 )
         }
@@ -196,13 +198,19 @@ struct HabitDetailView: View {
                 }
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DS.Spacing.xs), count: 7), spacing: DS.Spacing.xs) {
-                ForEach(Array(gridDays.enumerated()), id: \.offset) { _, day in
-                    if let day {
-                        heatCell(for: day)
-                    } else {
-                        Color.clear
-                            .aspectRatio(1, contentMode: .fit)
+            if isLoadingCalendar {
+                SiftSkeletonShimmer {
+                    HabitHeatMapSkeleton()
+                }
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DS.Spacing.xs), count: 7), spacing: DS.Spacing.xs) {
+                    ForEach(Array(gridDays.enumerated()), id: \.offset) { _, day in
+                        if let day {
+                            heatCell(for: day)
+                        } else {
+                            Color.clear
+                                .aspectRatio(1, contentMode: .fit)
+                        }
                     }
                 }
             }
@@ -227,10 +235,10 @@ struct HabitDetailView: View {
             return Color.siftInk.opacity(0.08)
         }
         if abs(credit - 0.5) < epsilon {
-            return Color.siftGem.opacity(0.45)
+            return Color.siftAccent.opacity(0.45)
         }
         if abs(credit - 1.0) < epsilon {
-            return Color.siftGem
+            return Color.siftAccent
         }
         return Color.siftInk.opacity(0.08)
     }
@@ -268,6 +276,13 @@ struct HabitDetailView: View {
     }
 
     private func loadLogs() async {
+        if isInitialCalendarLoad {
+            isLoadingCalendar = true
+        }
+        defer {
+            isLoadingCalendar = false
+            isInitialCalendarLoad = false
+        }
         let cal = Calendar.current
         let monthStart = cal.startOfMonth(for: displayMonth)
         let year = cal.component(.year, from: monthStart)

@@ -18,7 +18,7 @@ Sift is a disposable journal. Entries fade after seven days unless a gem is flag
 - Use XcodeBuildMCP tools to take simulator screenshots and validate UI before considering a task complete
 
 ### Architecture
-- iOS 17+ minimum deployment target
+- iOS 26 minimum deployment target
 - Pure SwiftUI only — no UIKit unless wrapping a legacy component with no SwiftUI equivalent
 - MVVM architecture — Models, ViewModels, Views clearly separated
 - No third party UI libraries — all components are custom built
@@ -349,6 +349,16 @@ The gems page with search and theme filtering is intentionally Keep-light. This 
 - Cross-app data sharing
 - AI-inferred theme associations
 - AI-generated review prompts
+
+---
+
+## iOS Native Patterns
+
+A separate reference document tracks native SwiftUI/UIKit implementation patterns as they are established during the build.
+
+**File:** `IOS_PATTERNS.md` in the repo root
+
+Cursor should consult this file when implementing any UI pattern that involves scroll behaviour, materials, custom navigation, or native component usage. When a new pattern is established, add it to `IOS_PATTERNS.md`.
 
 ---
 

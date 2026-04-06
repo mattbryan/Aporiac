@@ -34,6 +34,8 @@ private struct GemThemeInsert: Encodable, Sendable {
 final class GemViewModel {
     private(set) var gemsWithThemes: [GemWithThemes] = []
     private(set) var allThemes: [Theme] = []
+    /// `true` until the in-flight `load()` finishes.
+    private(set) var isLoading = true
     var searchText: String = ""
     var selectedThemeID: UUID? = nil
 
@@ -55,7 +57,11 @@ final class GemViewModel {
     }
 
     /// Fetches the user’s gems, `gem_themes` rows, and active themes; joins them in memory.
-    func load() async throws {
+    /// - Parameter showLoadingState: When false, skips the full-list skeleton (e.g. after a silent post-edit refresh).
+    func load(showLoadingState: Bool = true) async throws {
+        if showLoadingState { isLoading = true }
+        defer { if showLoadingState { isLoading = false } }
+
         guard let userID = service.currentUser?.id else {
             throw GemViewModelError.notAuthenticated
         }
@@ -105,6 +111,25 @@ final class GemViewModel {
         allThemes = themes
     }
 
+    /// Schedules persistence after typing pauses. Does not mutate list state per keystroke (avoids focus loss / list thrash).
+    func updateGemFragmentText(gemID: UUID, content: String) {
+        SupabaseService.shared.scheduleGemFragmentSave(gemID: gemID, content: content) { [weak self] in
+            guard let self else { return }
+            try? await self.load(showLoadingState: false)
+        }
+    }
+
+    /// Removes the gem from local state immediately, then deletes via Supabase; restores the prior list if the request fails.
+    func removeGem(id: UUID) async {
+        let snapshot = gemsWithThemes
+        gemsWithThemes.removeAll { $0.gem.id == id }
+        do {
+            try await SupabaseService.shared.deleteGem(id: id)
+        } catch {
+            gemsWithThemes = snapshot
+        }
+    }
+
     /// Inserts a `gem_themes` association and updates local state when this gem is already in memory; otherwise inserts only (e.g. gem just flagged from an entry).
     func addTheme(themeID: UUID, toGemID gemID: UUID) async throws {
         guard let theme = allThemes.first(where: { $0.id == themeID }) else {
@@ -135,6 +160,22 @@ final class GemViewModel {
                 .from("gem_themes")
                 .insert(GemThemeInsert(gemID: gemID, themeID: themeID))
                 .execute()
+        }
+    }
+
+    /// Deletes a `gem_themes` row and drops the theme from local list state when this gem is loaded.
+    func removeTheme(themeID: UUID, fromGemID gemID: UUID) async throws {
+        if let index = gemsWithThemes.firstIndex(where: { $0.gem.id == gemID }) {
+            let snapshot = gemsWithThemes
+            gemsWithThemes[index].themes.removeAll { $0.id == themeID }
+            do {
+                try await SupabaseService.shared.removeGemThemeLink(gemID: gemID, themeID: themeID)
+            } catch {
+                gemsWithThemes = snapshot
+                throw error
+            }
+        } else {
+            try await SupabaseService.shared.removeGemThemeLink(gemID: gemID, themeID: themeID)
         }
     }
 }

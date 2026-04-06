@@ -29,8 +29,14 @@ struct HabitLog: Identifiable, Codable, Sendable {
         return f
     }()
 
+    /// Returns a `yyyy-MM-dd` string for the given instant’s **local** calendar day (start-of-day).
+    static func dayString(for date: Date) -> String {
+        let day = Calendar.current.startOfDay(for: date)
+        return dateFormatter.string(from: day)
+    }
+
     /// Returns a `yyyy-MM-dd` string for today, for use when inserting a log.
     static func todayString() -> String {
-        dateFormatter.string(from: Date())
+        dayString(for: Date())
     }
 }

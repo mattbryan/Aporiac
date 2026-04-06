@@ -7,11 +7,16 @@ import Observation
 final class ThemeViewModel {
     private(set) var activeThemes: [Theme] = []
     private(set) var archivedThemes: [Theme] = []
+    /// `true` until the in-flight `load()` finishes.
+    private(set) var isLoading = true
 
     private var service: SupabaseService { .shared }
 
     /// Loads active themes (newest last by `created_at`) and archived themes (newest archive first).
     func load() async throws {
+        isLoading = true
+        defer { isLoading = false }
+
         guard let userID = service.currentUser?.id else {
             throw ThemeViewModelError.notAuthenticated
         }

@@ -12,17 +12,14 @@ final class AIService: Sendable {
     // MARK: - Daily Prompt
 
     /// Generates a single introspective question for today's mind dump placeholder.
-    /// References active themes when provided.
-    func dailyPrompt(themes: [String] = []) async -> String {
+    /// References active themes when provided and the chosen philosophical lens.
+    func dailyPrompt(themes: [String] = [], philosophy: Philosophy = .stoicism) async -> String {
         let themeContext = themes.isEmpty
             ? ""
             : " The user has these active themes on their mind: \(themes.joined(separator: ", "))."
 
         let systemPrompt = """
-        You generate a single introspective journal prompt rooted in Stoic philosophy. \
-        Draw from the core Stoic tradition — Marcus Aurelius, Epictetus, Seneca — and its central ideas: \
-        the dichotomy of control, memento mori, amor fati, virtue as the only good, the discipline of desire and action, \
-        the view from above, and living according to nature. \
+        You generate a single introspective journal prompt. \(philosophy.promptGuidance) \
         The prompt is one short, open-ended question — personal, specific, and genuinely thought-provoking. \
         It should invite honest self-examination, not productivity or positive thinking. \
         Never moralize or lecture. Never use Stoic jargon like "dichotomy of control" or "amor fati" directly. \
@@ -34,29 +31,7 @@ final class AIService: Sendable {
         Respond with only the question. No preamble, no explanation, no punctuation other than the question mark.
         """
 
-        return await complete(system: systemPrompt, user: "Give me today's prompt.") ?? "What did you give energy to today that wasn't yours to control?"
-    }
-
-    // MARK: - Gem Thread
-
-    /// Generates one sentence of connective tissue between the provided gem fragments.
-    /// Describes the relationship between gems — never summarises or recreates the writing.
-    func gemThread(gems: [String]) async -> String? {
-        guard gems.count >= 2 else { return nil }
-
-        let gemList = gems.enumerated().map { "- \($0.element)" }.joined(separator: "\n")
-
-        let systemPrompt = """
-        You write a single sentence that describes the connective tissue between a set of flagged fragments \
-        from a person's journal entry. These fragments are things they chose to keep — the rest of the entry \
-        has faded. Your sentence describes the relationship between these fragments. \
-        It does not summarise them. It does not recreate the writing that led to them. \
-        It should feel like a quiet observation, not a summary. One sentence. No more.
-        """
-
-        let user = "Here are the gems from today's entry:\n\(gemList)\n\nWrite the thread."
-
-        return await complete(system: systemPrompt, user: user)
+        return await complete(system: systemPrompt, user: "Give me today's prompt.") ?? "What did you give energy to today that wasn't yours to give?"
     }
 
     // MARK: - Entry card

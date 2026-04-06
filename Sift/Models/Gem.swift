@@ -12,8 +12,6 @@ struct Gem: Identifiable, Codable, Sendable {
     var rangeStart: Int
     /// Character offset in combined entry text (exclusive end).
     var rangeEnd: Int
-    /// AI-generated connective tissue between gems in an entry. One sentence maximum.
-    var thread: String?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -23,7 +21,6 @@ struct Gem: Identifiable, Codable, Sendable {
         case content
         case rangeStart = "range_start"
         case rangeEnd = "range_end"
-        case thread
         case createdAt = "created_at"
     }
 }

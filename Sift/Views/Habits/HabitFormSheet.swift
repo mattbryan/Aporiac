@@ -44,7 +44,7 @@ struct HabitFormSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(sheetTitle)
-                .font(.siftHeadline)
+                .siftTextStyle(.h2Medium)
                 .foregroundStyle(Color.siftInk)
                 .padding(.horizontal, 20)
                 .padding(.top, DS.Spacing.lg)
@@ -100,13 +100,14 @@ struct HabitFormSheet: View {
                     .font(.siftBodyMedium)
                     .foregroundStyle(Color.siftSurface)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .frame(height: DS.ButtonHeight.large)
                     .background(
                         canSave ? Color.siftInk : Color.siftInk.opacity(0.3),
                         in: RoundedRectangle(cornerRadius: DS.Radius.md)
                     )
             }
             .disabled(!canSave)
+            .buttonStyle(.plain)
             .padding(.horizontal, 20)
             .padding(.bottom, DS.Spacing.sm)
 
@@ -119,8 +120,9 @@ struct HabitFormSheet: View {
                         .font(.siftCallout)
                         .foregroundStyle(Color.siftSubtle)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(height: DS.ButtonHeight.medium)
                 }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 20)
                 .padding(.bottom, DS.Spacing.lg)
             }

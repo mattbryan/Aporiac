@@ -26,5 +26,20 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Newsreader-Italic-VariableFont_opsz,wght.ttf</string>
+		<string>Newsreader-VariableFont_opsz,wght.ttf</string>
+		<string>Satoshi-Regular.otf</string>
+		<string>Satoshi-Medium.otf</string>
+		<string>Satoshi-Bold.otf</string>
+		<string>Satoshi-Light.otf</string>
+		<string>Satoshi-Italic.otf</string>
+		<string>Satoshi-MediumItalic.otf</string>
+		<string>Satoshi-BoldItalic.otf</string>
+		<string>Satoshi-Black.otf</string>
+		<string>Satoshi-BlackItalic.otf</string>
+		<string>Satoshi-LightItalic.otf</string>
+	</array>
 </dict>
 </plist>

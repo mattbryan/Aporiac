@@ -5,22 +5,37 @@ import Observation
 @Observable
 final class ActionItemViewModel {
     private(set) var items: [ActionItem] = []
+    /// `true` until the in-flight `load()` finishes (initial or after user change).
+    private(set) var isLoading = true
+    /// Action IDs with a completion patch in flight (avoids racing toggles).
+    private(set) var completionSyncInFlightIDs: Set<UUID> = []
 
     private var service: SupabaseService { .shared }
     private var contentUpdateTasks: [UUID: Task<Void, Never>] = [:]
 
     // MARK: Load
 
-    func load() async {
-        guard let userID = service.currentUser?.id else { return }
-        let now = Date()
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let nowISO8601 = formatter.string(from: now)
-        let expiryOrClause = "expires_at.is.null,expires_at.gt.\(nowISO8601)"
+    func load(for day: Date = Date()) async {
+        isLoading = true
+        defer { isLoading = false }
 
+        guard let userID = service.currentUser?.id else { return }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: day)
+        guard let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+
+        // PostgREST filter values must not include extra `.` segments (e.g. fractional seconds) or `gte` / `or` parsing breaks.
+        let filterFormatter = ISO8601DateFormatter()
+        filterFormatter.formatOptions = [.withInternetDateTime]
+
+        let now = Date()
+        let nowISO = filterFormatter.string(from: now)
+        let expiryOrClause = "expires_at.is.null,expires_at.gt.\(nowISO)"
+
+        let active: [ActionItem]
         do {
-            let active: [ActionItem] = try await service.client
+            active = try await service.client
                 .from("action_items")
                 .select()
                 .eq("user_id", value: userID.uuidString)
@@ -29,29 +44,46 @@ final class ActionItemViewModel {
                 .order("created_at")
                 .execute()
                 .value
+        } catch {
+            print("Failed to load active action items: \(error)")
+            return
+        }
 
-            let completed: [ActionItem] = try await service.client
+        var completed: [ActionItem] = []
+        do {
+            let startISO = filterFormatter.string(from: startOfDay)
+            let endISO = filterFormatter.string(from: startOfNextDay)
+            completed = try await service.client
                 .from("action_items")
                 .select()
                 .eq("user_id", value: userID.uuidString)
                 .eq("completed", value: true)
-                .or(expiryOrClause)
-                .order("created_at")
+                .gte("completed_at", value: startISO)
+                .lt("completed_at", value: endISO)
+                .order("completed_at")
                 .execute()
                 .value
+        } catch {
+            // e.g. `completed_at` missing in DB — still show active items
+            print("Failed to load completed action items for day (active list still shown): \(error)")
+        }
 
-            items = active + completed
+        items = active + completed
 
-            let startOfToday = Calendar.current.startOfDay(for: now)
+        // Carry-forward logic only applies when viewing today
+        if calendar.isDate(day, inSameDayAs: now) {
+            let startOfToday = calendar.startOfDay(for: now)
             for index in items.indices {
-                let item = items[index]
-                guard !item.completed,
-                      item.createdAt < startOfToday,
-                      !item.carriedForward
+                let row = items[index]
+                guard !row.completed,
+                      row.createdAt < startOfToday,
+                      !row.carriedForward
                 else { continue }
 
-                items[index].carriedForward = true
-                let id = item.id
+                var updated = row
+                updated.carriedForward = true
+                items[index] = updated
+                let id = row.id
                 Task {
                     do {
                         try await service.client
@@ -64,8 +96,6 @@ final class ActionItemViewModel {
                     }
                 }
             }
-        } catch {
-            print("Failed to load action items: \(error)")
         }
     }
 
@@ -166,23 +196,61 @@ final class ActionItemViewModel {
         setCompleted(item, completed: false)
     }
 
+    /// Toggles `completed` using the live state from `items`, not a captured copy.
+    func toggle(_ item: ActionItem) {
+        guard let live = items.first(where: { $0.id == item.id }) else { return }
+        setCompleted(live, completed: !live.completed)
+    }
+
     private func setCompleted(_ item: ActionItem, completed: Bool) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index].completed = completed
+        guard !completionSyncInFlightIDs.contains(item.id) else { return }
+        var inFlight = completionSyncInFlightIDs
+        inFlight.insert(item.id)
+        completionSyncInFlightIDs = inFlight
+
+        let previousCompleted = items[index].completed
+        let previousCompletedAt = items[index].completedAt
+        var updated = items[index]
+        updated.completed = completed
+        updated.completedAt = completed ? Date() : nil
+        items[index] = updated
         let id = item.id
-        Task {
+        let entryID = item.entryID
+        let taskBody = item.content
+        Task { @MainActor in
+            defer {
+                var ids = completionSyncInFlightIDs
+                ids.remove(id)
+                completionSyncInFlightIDs = ids
+            }
             do {
-                try await service.client
-                    .from("action_items")
-                    .update(CompletionUpdate(completed: completed))
-                    .eq("id", value: id.uuidString)
-                    .execute()
+                try await service.patchActionCompletion(
+                    actionID: id,
+                    entryID: entryID,
+                    content: taskBody,
+                    completed: completed
+                )
             } catch {
                 if let i = items.firstIndex(where: { $0.id == id }) {
-                    items[i].completed = !completed
+                    var reverted = items[i]
+                    reverted.completed = previousCompleted
+                    reverted.completedAt = previousCompletedAt
+                    items[i] = reverted
                 }
-                print("Failed to update action item: \(error)")
+                print("Failed to patch action completion: \(error)")
+                return
             }
+            NotificationCenter.default.post(
+                name: .siftActionCompletionChanged,
+                object: nil,
+                userInfo: [
+                    "actionContent": taskBody,
+                    "completed": completed,
+                    "entryID": entryID as Any
+                ]
+            )
+            NotificationCenter.default.post(name: .siftJournalEntitiesDidSync, object: nil)
         }
     }
 
@@ -208,7 +276,9 @@ final class ActionItemViewModel {
 
     func updateContent(_ item: ActionItem, content: String) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index].content = content
+        var updated = items[index]
+        updated.content = content
+        items[index] = updated
         let id = item.id
         contentUpdateTasks[id]?.cancel()
         contentUpdateTasks[id] = Task {
@@ -234,10 +304,6 @@ final class ActionItemViewModel {
 }
 
 // MARK: - Update payloads
-
-private struct CompletionUpdate: Encodable {
-    let completed: Bool
-}
 
 private struct ContentUpdate: Encodable {
     let content: String
