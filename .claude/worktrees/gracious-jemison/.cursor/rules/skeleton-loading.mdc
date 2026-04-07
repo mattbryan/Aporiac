@@ -1,0 +1,21 @@
+---
+description: Use skeleton placeholder UI while async content loads so screens never flash empty before data appears.
+alwaysApply: true
+---
+
+# Skeleton loading (Sift)
+
+When a view fetches data from Supabase or runs a multi-step async load before showing primary content, **show a skeleton** in the layout shape of the real content until the load finishes. Do not leave the main content area blank only to have it populate a moment later.
+
+## Implementation (this project)
+
+- Add `isLoading` (or equivalent) on the relevant `@Observable` view model: set `true` at the start of `load()`, use `defer { isLoading = false }` so all exit paths clear it.
+- Prefer reusable placeholders in `Sift/Components/DesignSystem.swift` (section **Skeleton placeholders**): wrap groups in `SiftSkeletonShimmer { ... }` so fills share a soft pulse via `Environment(\.skeletonPulseOpacity)`.
+- Match **real row heights and horizontal padding** (e.g. `HomeActionRowSkeleton`, `GemCardSkeleton`, `SiftListRowSkeleton`) so the transition to real content does not jump vertically.
+- **Empty states** (copy like “No habits yet”) should appear only **after** `isLoading` is false and the backing collection is empty—not during the initial fetch.
+- **New screens or new async lists** should follow the same pattern; add new skeleton `View` types in `DesignSystem.swift` under the skeleton section when the layout is meaningfully different from existing placeholders (keeps all targets compiling without editing `project.pbxproj`).
+
+## Anti-patterns
+
+- A lone `ProgressView()` in the middle of a screen where a list or card will appear (unless the UX is explicitly a short modal task).
+- Using `redacted(reason: .placeholder)` on arbitrary text without composing it into the expected layout—prefer explicit skeleton blocks that match design spacing.

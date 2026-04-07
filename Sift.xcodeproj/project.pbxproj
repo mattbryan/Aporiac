@@ -10,7 +10,6 @@
 		0EB4664770E4EA66A87BA5AE /* Gem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D0F7C119ACC397D49AACBF9 /* Gem.swift */; };
 		133A5BE3CBF93E478FBE14C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BF6048B2472CAFDC9F2223 /* Theme.swift */; };
 		17B5ABA09A0433128F831DF0 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */; };
-		E1D2C3B4A59687786950101 /* EntryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D2C3B4A59687786950102 /* EntryParser.swift */; };
 		194053DC2F8189DE008093E2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 194053DB2F8189DE008093E2 /* Assets.xcassets */; };
 		199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6AE2F80086D00E9DE0C /* UserSettings.swift */; };
 		199DD6B62F80147A00E9DE0C /* ThemeFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B32F80147A00E9DE0C /* ThemeFormSheet.swift */; };
@@ -43,6 +42,7 @@
 		D257288FE57FEB8302C13284 /* Habit.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2E3692F893AEB59704420B /* Habit.swift */; };
 		D2B3C4D5E6F708192A3B4C5D /* CalendarDayHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F708192A3B4C1 /* CalendarDayHomeView.swift */; };
 		D3D051AD77DF88E31C5ED4BD /* SiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943DFDC32F6BE99E05E19275 /* SiftApp.swift */; };
+		E1D2C3B4A59687786950101 /* EntryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D2C3B4A59687786950102 /* EntryParser.swift */; };
 		E6C6852DAAAF54869CDFF2D0 /* Entry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63B25F2E3A2E6DA35E5D6125 /* Entry.swift */; };
 		F00D50022F8048AA00E9AB02 /* HabitFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D50012F8048AA00E9AB01 /* HabitFormSheet.swift */; };
 		F4D5E6F709293A4B5C6D7E30 /* HomeListInteractions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C4D5E6F708192A3B4C6E20 /* HomeListInteractions.swift */; };
@@ -448,7 +448,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.aporian.sift;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aporiac.sift;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -591,7 +591,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.aporian.sift;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aporiac.sift;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

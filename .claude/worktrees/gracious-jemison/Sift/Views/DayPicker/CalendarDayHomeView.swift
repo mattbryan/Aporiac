@@ -1,0 +1,670 @@
+import SwiftUI
+
+/// Full-screen Today-style layout for a single calendar day (from the week picker): entry card, that day’s habit logs, current actions list.
+struct CalendarDayHomeView: View {
+    /// Local start-of-day for the selected date.
+    let calendarDay: Date
+    /// Entry id from the calendar grid (latest that day); used if the card refresh has not run yet.
+    let knownEntryID: UUID?
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var homeViewModel = HomeViewModel()
+    @State private var habitViewModel = HabitViewModel()
+    @State private var actionViewModel = ActionItemViewModel()
+    @FocusState private var focusedActionItemID: UUID?
+    @State private var openSwipeRowKey: String?
+
+    @State private var showEntry = false
+    @State private var entryDestination: EntryDestination = .today
+    @State private var showSettings = false
+
+    /// Until habits/actions/entry card finish their first load, show a skeleton on the entry card.
+    @State private var isEntryCardInitialLoad = true
+
+    @State private var dayGemsWithThemes: [GemWithThemes] = []
+    @State private var isDayGemsLoading = false
+    /// Every entry session on this local calendar day (for aggregate gems and section visibility).
+    @State private var dayEntryIDs: [UUID] = []
+    @State private var gemNavigationPath = NavigationPath()
+
+    private var dayStart: Date {
+        Calendar.current.startOfDay(for: calendarDay)
+    }
+
+    private var isToday: Bool {
+        Calendar.current.isDate(dayStart, inSameDayAs: Date())
+    }
+
+    /// Gems appear whenever at least one entry row exists for this calendar day (includes gems on non-latest sessions).
+    private var gemsSectionShown: Bool {
+        !isEntryCardInitialLoad && !dayEntryIDs.isEmpty
+    }
+
+    /// Spacing before Habits when a Gems block is shown above it.
+    private var habitsSectionLabelTop: CGFloat {
+        gemsSectionShown ? DS.Spacing.lg : 0
+    }
+
+    private var actionsSectionLabelTop: CGFloat {
+        let habitBlockVisible = habitViewModel.isLoading
+            || !habitViewModel.activeHabits.isEmpty
+            || habitViewModel.lastLoadError != nil
+        if habitBlockVisible { return DS.Spacing.lg }
+        if gemsSectionShown { return DS.Spacing.lg }
+        return 0
+    }
+
+    private func dismissTypingFocus() {
+        focusedActionItemID = nil
+    }
+
+    var body: some View {
+        NavigationStack(path: $gemNavigationPath) {
+            VStack(alignment: .leading, spacing: 0) {
+                Group {
+                    if isToday {
+                        HStack {
+                            Button {
+                                dismissTypingFocus()
+                                dismiss()
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(Color.siftSubtle)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.leading, DS.Spacing.md)
+                        .padding(.top, DS.Spacing.sm)
+                    } else {
+                        pastDayTopToolbar
+                            .padding(.top, DS.Spacing.sm)
+                    }
+                }
+
+                scrollContent
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: UUID.self) { gemID in
+                GemDetailView(gemID: gemID, navigationPath: $gemNavigationPath)
+            }
+        }
+        .background(Color.siftSurface.ignoresSafeArea())
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { dismissTypingFocus() }
+                    .font(.siftBodyMedium)
+                    .tint(Color.siftAccent)
+            }
+        }
+        .task(id: dayStart) {
+            isEntryCardInitialLoad = true
+            async let card: () = homeViewModel.refreshEntryCard(for: dayStart)
+            async let actions: () = actionViewModel.load(for: dayStart)
+            async let habits: () = {
+                do {
+                    try await habitViewModel.load(for: dayStart)
+                } catch {}
+            }()
+            await card
+            await actions
+            await habits
+            do {
+                dayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
+            } catch {
+                print("[CalendarDayHome] fetchEntryIDs failed: \(error)")
+                dayEntryIDs = []
+            }
+            isEntryCardInitialLoad = false
+            await loadDayGems()
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView()
+            }
+        }
+        .fullScreenCover(isPresented: $showEntry) {
+            EntryView(destination: entryDestination)
+        }
+        .onChange(of: showEntry) {
+            if !showEntry {
+                Task {
+                    await homeViewModel.refreshEntryCard(for: dayStart)
+                    do {
+                        dayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
+                    } catch {
+                        dayEntryIDs = []
+                    }
+                    await loadDayGems()
+                    try? await Task.sleep(for: .milliseconds(400))
+                    await actionViewModel.load(for: dayStart)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .siftJournalEntitiesDidSync)) { _ in
+            Task {
+                await actionViewModel.load(for: dayStart)
+                do {
+                    dayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
+                } catch {
+                    dayEntryIDs = []
+                }
+                await loadDayGems()
+            }
+        }
+    }
+
+    /// Matches `HomeView`’s scrolled top bar: calendar, short date, settings.
+    private var pastDayTopToolbar: some View {
+        let barHeight = DS.ButtonHeight.large
+        return HStack(spacing: 0) {
+            Button {
+                dismissTypingFocus()
+                dismiss()
+            } label: {
+                Image(systemName: "calendar")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 40, height: 40)
+            }
+            .glassEffect(.regular.interactive(), in: Circle())
+            .frame(width: 44)
+
+            Spacer()
+
+            Text(pastDayToolbarTitle)
+                .font(.siftBodyMedium)
+                .foregroundStyle(Color.siftInk)
+
+            Spacer()
+
+            Button {
+                dismissTypingFocus()
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 40, height: 40)
+            }
+            .glassEffect(.regular.interactive(), in: Circle())
+            .frame(width: 44)
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .frame(height: barHeight)
+    }
+
+    private var pastDayToolbarTitle: String {
+        let calendar = Calendar.current
+        let year = calendar.component(.year, from: dayStart)
+        let currentYear = calendar.component(.year, from: Date())
+        let base = dayStart.formatted(.dateTime.month(.abbreviated).day())
+        if year != currentYear {
+            return "\(base), \(year)"
+        }
+        return base
+    }
+
+    private var scrollContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                dateHeading
+                    .padding(.top, DS.Spacing.sm)
+
+                entryCard
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.top, DS.Spacing.lg)
+                    .padding(.bottom, DS.Spacing.lg)
+
+                HomeDayGemsSection(
+                    sectionLabelTop: 0,
+                    showsSection: gemsSectionShown,
+                    isLoading: isDayGemsLoading,
+                    gems: dayGemsWithThemes,
+                    openSwipeRowKey: $openSwipeRowKey,
+                    horizontalInset: DS.Spacing.md,
+                    onDeleteGem: { id in await deleteDayGem(id: id) }
+                )
+
+                if habitViewModel.isLoading {
+                    sectionLabel("Habits", top: habitsSectionLabelTop)
+                    SiftSkeletonShimmer {
+                        ForEach(0..<3, id: \.self) { _ in
+                            HomeHabitRowSkeleton()
+                        }
+                    }
+                } else if !habitViewModel.activeHabits.isEmpty || habitViewModel.lastLoadError != nil {
+                    sectionLabel("Habits", top: habitsSectionLabelTop)
+                    if let message = habitViewModel.lastLoadError {
+                        habitLoadFailureCallout(message)
+                    }
+                    ForEach(habitViewModel.activeHabits) { habit in
+                        SwipeRevealRow(
+                            rowKey: HomeSwipeRowKeys.habit(habit.id),
+                            openRowKey: $openSwipeRowKey,
+                            leadingWidth: HomeScreenLayout.swipeActionButtonWidth,
+                            trailingWidth: HomeScreenLayout.swipeActionButtonWidth,
+                            allowsFullSwipeLeading: true,
+                            allowsFullSwipeTrailing: true,
+                            contentBackdrop: Color.siftSurface,
+                            onFullSwipeLeading: {
+                                openSwipeRowKey = nil
+                                Task { try? await habitViewModel.setLog(habitID: habit.id, credit: 1.0) }
+                            },
+                            onFullSwipeTrailing: {
+                                openSwipeRowKey = nil
+                                Task { try? await habitViewModel.setLog(habitID: habit.id, credit: 0) }
+                            },
+                            leading: {
+                                Button {
+                                    openSwipeRowKey = nil
+                                    Task { try? await habitViewModel.setLog(habitID: habit.id, credit: 1.0) }
+                                } label: {
+                                    ZStack {
+                                        DiamondShape()
+                                            .fill(Color.siftContrastLight)
+                                        DiamondShape()
+                                            .fill(Color.siftAccent)
+                                            .scaleEffect(0.42)
+                                    }
+                                    .frame(width: 24, height: 24)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .background(Color.siftAccent)
+                            },
+                            trailing: {
+                                Button {
+                                    openSwipeRowKey = nil
+                                    Task { try? await habitViewModel.setLog(habitID: habit.id, credit: 0) }
+                                } label: {
+                                    DiamondShape()
+                                        .stroke(Color.siftContrastLight, lineWidth: 1.5)
+                                        .frame(width: 24, height: 24)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .background(Color.siftDelete)
+                            }
+                        ) {
+                            habitRow(habit)
+                        }
+                        .id(habit.id)
+                    }
+                }
+
+                sectionLabel("Actions", top: actionsSectionLabelTop)
+                if actionViewModel.isLoading {
+                    SiftSkeletonShimmer {
+                        ForEach(0..<4, id: \.self) { _ in
+                            HomeActionRowSkeleton()
+                        }
+                    }
+                } else {
+                    ForEach(actionViewModel.activeItems) { item in
+                        SwipeRevealRow(
+                            rowKey: HomeSwipeRowKeys.action(item.id),
+                            openRowKey: $openSwipeRowKey,
+                            leadingWidth: HomeScreenLayout.swipeActionButtonWidth,
+                            trailingWidth: HomeScreenLayout.swipeActionButtonWidth,
+                            allowsFullSwipeLeading: true,
+                            allowsFullSwipeTrailing: true,
+                            contentBackdrop: Color.siftSurface,
+                            onFullSwipeLeading: {
+                                openSwipeRowKey = nil
+                                actionViewModel.complete(item)
+                            },
+                            onFullSwipeTrailing: {
+                                openSwipeRowKey = nil
+                                actionViewModel.delete(item)
+                            },
+                            leading: {
+                                Button {
+                                    openSwipeRowKey = nil
+                                    actionViewModel.complete(item)
+                                } label: {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(Color.siftContrastLight)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .background(Color.siftAccent)
+                            },
+                            trailing: {
+                                Button {
+                                    openSwipeRowKey = nil
+                                    actionViewModel.delete(item)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundStyle(Color.siftContrastLight)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .background(Color.siftDelete)
+                            }
+                        ) {
+                            actionRow(item)
+                        }
+                        .id(HomeSwipeRowKeys.actionIdentity(item))
+                    }
+
+                    addActionButton
+
+                    if !actionViewModel.completedItems.isEmpty {
+                        sectionLabel("Completed Actions", top: DS.Spacing.lg)
+                        ForEach(actionViewModel.completedItems) { item in
+                            SwipeRevealRow(
+                                rowKey: HomeSwipeRowKeys.action(item.id),
+                                openRowKey: $openSwipeRowKey,
+                                leadingWidth: HomeScreenLayout.swipeActionButtonWidth,
+                                trailingWidth: HomeScreenLayout.swipeActionButtonWidth,
+                                allowsFullSwipeLeading: true,
+                                allowsFullSwipeTrailing: true,
+                                contentBackdrop: Color.siftSurface,
+                                onFullSwipeLeading: {
+                                    openSwipeRowKey = nil
+                                    actionViewModel.uncomplete(item)
+                                },
+                                onFullSwipeTrailing: {
+                                    openSwipeRowKey = nil
+                                    actionViewModel.delete(item)
+                                },
+                                leading: {
+                                    Button {
+                                        openSwipeRowKey = nil
+                                        actionViewModel.uncomplete(item)
+                                    } label: {
+                                        Image(systemName: "arrow.uturn.left")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundStyle(Color.siftInk)
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .background(Color.siftInk.opacity(0.12))
+                                },
+                                trailing: {
+                                    Button {
+                                        openSwipeRowKey = nil
+                                        actionViewModel.delete(item)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundStyle(Color.siftContrastLight)
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .background(Color.siftDelete)
+                                }
+                            ) {
+                                actionRow(item)
+                            }
+                            .id(HomeSwipeRowKeys.actionIdentity(item))
+                        }
+                    }
+                }
+
+                Color.clear.frame(height: 120)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private var dateHeading: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                Text(dayStart, format: .dateTime.weekday(.wide))
+                    .siftMicroSectionLabel()
+                    .foregroundStyle(Color.siftAccent)
+                Text(dateHeadingTitle)
+                    .siftTextStyle(.h1Bold)
+                    .foregroundStyle(Color.siftInk)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.top, DS.Spacing.xs)
+    }
+
+    private var dateHeadingTitle: String {
+        if isToday {
+            return "Today, \(dayStart.formatted(.dateTime.month(.abbreviated).day()))"
+        }
+        return dayStart.formatted(.dateTime.month(.wide).day().year())
+    }
+
+    private var entryCard: some View {
+        Button {
+            dismissTypingFocus()
+            prepareEntryDestination()
+            showEntry = true
+        } label: {
+            Group {
+                if isEntryCardInitialLoad {
+                    SiftSkeletonShimmer {
+                        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                            SiftSkeletonLine(height: 14, widthFraction: 0.45)
+                            SiftSkeletonLine(height: 17, widthFraction: 0.92)
+                            SiftSkeletonLine(height: 17, widthFraction: 0.78)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, DS.Spacing.xs)
+                    }
+                } else {
+                    switch homeViewModel.entryCardState {
+                    case .startPrompt:
+                        Text(isToday ? "Start today's entry" : "Open entry")
+                            .font(.siftBodyMedium)
+                            .foregroundStyle(Color.siftSubtle)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    case .loadingBrief:
+                        SiftSkeletonShimmer {
+                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                                SiftSkeletonLine(height: 14, widthFraction: 0.45)
+                                SiftSkeletonLine(height: 17, widthFraction: 0.92)
+                                SiftSkeletonLine(height: 17, widthFraction: 0.78)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, DS.Spacing.xs)
+                        }
+                    case .brief(let phrase):
+                        Text(phrase)
+                            .font(.siftBody)
+                            .foregroundStyle(Color.siftInk)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
+            }
+            .padding(DS.Spacing.md)
+            .frame(minHeight: 80, alignment: .center)
+            .background(Color.siftCard, in: RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func prepareEntryDestination() {
+        if isToday {
+            entryDestination = .today
+        } else if let id = homeViewModel.displayedEntryID ?? knownEntryID {
+            entryDestination = .past(entryID: id, calendarDay: dayStart)
+        } else {
+            entryDestination = .today
+        }
+    }
+
+    private func sectionLabel(_ title: String, top: CGFloat = DS.Spacing.lg) -> some View {
+        Text(title)
+            .siftMicroSectionLabel()
+            .foregroundStyle(Color.siftAccent)
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.top, top)
+            .padding(.bottom, DS.Spacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func habitLoadFailureCallout(_ message: String) -> some View {
+        HStack(alignment: .center, spacing: DS.Spacing.md) {
+            Text(message)
+                .font(.siftCallout)
+                .foregroundStyle(Color.siftSubtle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Retry") {
+                Task {
+                    do {
+                        try await habitViewModel.load(for: dayStart)
+                    } catch {}
+                }
+            }
+            .font(.siftCallout)
+            .foregroundStyle(Color.siftAccent)
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.bottom, DS.Spacing.sm)
+    }
+
+    private func habitRow(_ habit: Habit) -> some View {
+        let log = habitViewModel.todayLogs[habit.id]
+        let epsilon: Float = 0.01
+        let isFull = log.map { abs($0.credit - 1.0) < epsilon } ?? false
+        let isPartial = log.map { abs($0.credit - 0.5) < epsilon } ?? false
+
+        let rowText: String = {
+            if isFull { return habit.fullCriteria }
+            if isPartial { return habit.partialCriteria }
+            return habit.title
+        }()
+
+        return HStack(alignment: .center, spacing: DS.Spacing.sm) {
+            habitCreditIndicator(for: log?.credit)
+                .frame(width: 40, height: 40)
+
+            Text(rowText)
+                .font(.siftCallout)
+                .foregroundStyle(Color.siftInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(DS.animationFast, value: rowText)
+        }
+        .frame(minHeight: DS.ButtonHeight.large, alignment: .center)
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.horizontal, DS.Spacing.md)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            dismissTypingFocus()
+            Task { try? await habitViewModel.cycleLog(habitID: habit.id) }
+        }
+        .modifier(SwipeRevealBlocksForegroundWhenSwipeOpen())
+    }
+
+    private func habitCreditIndicator(for credit: Float?) -> some View {
+        let epsilon: Float = 0.01
+        let isFull = credit.map { abs($0 - 1.0) < epsilon } ?? false
+        let isPartial = credit.map { abs($0 - 0.5) < epsilon } ?? false
+
+        return ZStack {
+            DiamondShape()
+                .stroke(Color.siftAccent, lineWidth: 1.5)
+                .opacity(isFull ? 0 : 1)
+
+            DiamondShape()
+                .fill(Color.siftAccent)
+                .opacity(isFull ? 1 : 0)
+
+            DiamondShape()
+                .fill(Color.siftContrastLight)
+                .scaleEffect(0.4)
+                .opacity(isFull ? 1 : 0)
+
+            Circle()
+                .fill(Color.siftAccent)
+                .frame(width: 7, height: 7)
+                .opacity(isPartial ? 1 : 0)
+        }
+        .frame(width: 40, height: 40)
+        .animation(DS.animationFast, value: credit)
+    }
+
+    private func actionRow(_ item: ActionItem) -> some View {
+        ActionItemRow(
+            item: item,
+            focusedField: $focusedActionItemID,
+            onToggle: {
+                dismissTypingFocus()
+                actionViewModel.toggle(item)
+            },
+            onContentChange: { actionViewModel.updateContent(item, content: $0) },
+            onReturnCreatesNewItemBelow: item.completed ? nil : { tail in
+                Task {
+                    if let newItem = await actionViewModel.create(after: item, content: tail) {
+                        try? await Task.sleep(for: .milliseconds(200))
+                        focusedActionItemID = newItem.id
+                    }
+                }
+            }
+        )
+    }
+
+    private var addActionButton: some View {
+        Button {
+            dismissTypingFocus()
+            Task {
+                if let item = await actionViewModel.create() {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    focusedActionItemID = item.id
+                }
+            }
+        } label: {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.siftSubtle)
+                    .frame(width: 24, height: 24)
+                Text("New action")
+                    .font(.siftCallout)
+                    .foregroundStyle(Color.siftSubtle)
+                Spacer()
+            }
+            .padding(DS.Spacing.sm)
+            .padding(.horizontal, DS.Spacing.md)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func loadDayGems(showLoading: Bool = true) async {
+        guard !dayEntryIDs.isEmpty else {
+            dayGemsWithThemes = []
+            isDayGemsLoading = false
+            return
+        }
+
+        if showLoading { isDayGemsLoading = true }
+        defer { if showLoading { isDayGemsLoading = false } }
+
+        do {
+            dayGemsWithThemes = try await SupabaseService.shared.fetchGemsWithThemes(forEntryIDs: dayEntryIDs)
+        } catch {
+            print("[CalendarDayHome] loadDayGems failed: \(error)")
+            dayGemsWithThemes = []
+        }
+    }
+
+    private func deleteDayGem(id: UUID) async {
+        dismissTypingFocus()
+        do {
+            try await SupabaseService.shared.deleteGem(id: id)
+            await loadDayGems()
+        } catch {
+            print("[CalendarDayHome] deleteDayGem failed: \(error)")
+            await loadDayGems()
+        }
+    }
+}
