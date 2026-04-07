@@ -98,6 +98,26 @@ final class SupabaseService {
         return rows.map(\.id)
     }
 
+    /// Deletes entries older than 7 days that have no gem flagged. Safe to call on every launch —
+    /// entries with `has_gem = true` are never touched, preserving gem references.
+    func purgeExpiredEntries() async {
+        guard let userID = currentUser?.id else { return }
+        var formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let now = formatter.string(from: Date())
+        do {
+            try await client
+                .from("entries")
+                .delete()
+                .eq("user_id", value: userID.uuidString)
+                .eq("has_gem", value: false)
+                .lt("expires_at", value: now)
+                .execute()
+        } catch {
+            print("[SupabaseService] purgeExpiredEntries failed: \(error)")
+        }
+    }
+
     /// Gems flagged on a specific entry, with active theme chips joined in memory (same shape as `GemViewModel` rows).
     func fetchGemsWithThemes(forEntryID entryID: UUID) async throws -> [GemWithThemes] {
         try await fetchGemsWithThemes(forEntryIDs: [entryID])

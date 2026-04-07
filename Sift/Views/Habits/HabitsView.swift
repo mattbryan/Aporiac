@@ -5,7 +5,6 @@ struct HabitsView: View {
     @State private var viewModel = HabitViewModel()
     @State private var showCreateSheet = false
     @State private var selectedHabit: Habit? = nil
-    @State private var editingHabit: Habit? = nil
     @State private var showArchived = false
 
     var body: some View {
@@ -29,15 +28,14 @@ struct HabitsView: View {
             .padding(.top, DS.Spacing.md)
 
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: DS.Spacing.sm) {
                     if viewModel.isLoading {
                         SiftSkeletonShimmer {
                             ForEach(0..<5, id: \.self) { _ in
                                 SiftListRowSkeleton()
-                                Rectangle()
-                                    .fill(Color.siftDivider)
-                                    .frame(height: 1)
-                                    .padding(.horizontal, 20)
+                                    .padding(.horizontal, DS.Spacing.md - 20)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.siftCard, in: RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
                             }
                         }
                     } else if viewModel.activeHabits.isEmpty {
@@ -52,10 +50,6 @@ struct HabitsView: View {
                                 .onTapGesture {
                                     selectedHabit = habit
                                 }
-                            Rectangle()
-                                .fill(Color.siftDivider)
-                                .frame(height: 1)
-                                .padding(.horizontal, 20)
                         }
                     }
 
@@ -73,7 +67,6 @@ struct HabitsView: View {
                                     .foregroundStyle(Color.siftSubtle)
                             }
                         }
-                        .padding(.horizontal, 20)
                         .padding(.vertical, DS.Spacing.md)
                         .buttonStyle(.plain)
                     }
@@ -81,13 +74,11 @@ struct HabitsView: View {
                     if showArchived {
                         ForEach(viewModel.archivedHabits) { habit in
                             HabitRow(habit: habit, log: nil, archived: true)
-                            Rectangle()
-                                .fill(Color.siftDivider)
-                                .frame(height: 1)
-                                .padding(.horizontal, 20)
                         }
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, DS.Spacing.md)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -102,18 +93,8 @@ struct HabitsView: View {
         .sheet(item: $selectedHabit) { habit in
             HabitDetailView(
                 habit: habit,
-                viewModel: viewModel,
-                onEdit: { editingHabit = habit }
+                viewModel: viewModel
             )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(item: $editingHabit) { habit in
-            HabitFormSheet(mode: .edit(habit)) { title, full, partial in
-                Task { try? await viewModel.update(habit: habit, title: title, fullCriteria: full, partialCriteria: partial) }
-            } onArchive: {
-                Task { try? await viewModel.archive(habit) }
-            }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
@@ -143,13 +124,12 @@ struct HabitsView: View {
                     }
                 }
                 Spacer()
-                if !archived {
-                    Self.creditDot(for: log)
-                }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DS.Spacing.md)
             .padding(.vertical, DS.Spacing.md)
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.siftCard, in: RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
         }
 
         private static func logLabel(for log: HabitLog?) -> String {
@@ -163,26 +143,6 @@ struct HabitsView: View {
                 return "Full"
             }
             return ""
-        }
-
-        private static func dotColor(for log: HabitLog?) -> Color {
-            guard let log else {
-                return Color.siftInk.opacity(0.12)
-            }
-            if abs(log.credit - 0.5) < 0.01 {
-                return Color.siftAccent.opacity(0.5)
-            }
-            if abs(log.credit - 1.0) < 0.01 {
-                return Color.siftAccent
-            }
-            return Color.siftInk.opacity(0.12)
-        }
-
-        @ViewBuilder
-        private static func creditDot(for log: HabitLog?) -> some View {
-            Circle()
-                .frame(width: 10, height: 10)
-                .foregroundStyle(dotColor(for: log))
         }
     }
 }

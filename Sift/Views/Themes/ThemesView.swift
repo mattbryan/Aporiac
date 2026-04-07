@@ -28,15 +28,14 @@ struct ThemesView: View {
             .padding(.top, DS.Spacing.md)
 
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: DS.Spacing.sm) {
                     if viewModel.isLoading {
                         SiftSkeletonShimmer {
                             ForEach(0..<5, id: \.self) { _ in
                                 SiftListRowSkeleton()
-                                Rectangle()
-                                    .fill(Color.siftDivider)
-                                    .frame(height: 1)
-                                    .padding(.horizontal, 20)
+                                    .padding(.horizontal, DS.Spacing.md - 20)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.siftCard, in: RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
                             }
                         }
                     } else if viewModel.activeThemes.isEmpty {
@@ -51,10 +50,6 @@ struct ThemesView: View {
                                 .onTapGesture {
                                     editingTheme = theme
                                 }
-                            Rectangle()
-                                .fill(Color.siftDivider)
-                                .frame(height: 1)
-                                .padding(.horizontal, 20)
                         }
                     }
 
@@ -72,7 +67,6 @@ struct ThemesView: View {
                                     .foregroundStyle(Color.siftSubtle)
                             }
                         }
-                        .padding(.horizontal, 20)
                         .padding(.vertical, DS.Spacing.md)
                         .buttonStyle(.plain)
                     }
@@ -80,13 +74,11 @@ struct ThemesView: View {
                     if showArchived {
                         ForEach(viewModel.archivedThemes) { theme in
                             ThemeRow(theme: theme, archived: true)
-                            Rectangle()
-                                .fill(Color.siftDivider)
-                                .frame(height: 1)
-                                .padding(.horizontal, 20)
                         }
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, DS.Spacing.md)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -132,15 +124,12 @@ struct ThemesView: View {
                     }
                 }
                 Spacer()
-                if !archived {
-                    Image(systemName: "chevron.right")
-                        .font(.siftCaption)
-                        .foregroundStyle(Color.siftSubtle)
-                }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DS.Spacing.md)
             .padding(.vertical, DS.Spacing.md)
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.siftCard, in: RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
         }
     }
 }

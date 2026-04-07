@@ -340,6 +340,13 @@ enum DS {
         return curve[min(max(daysAgo, 0), 6)]
     }
 
+    /// Opacity for entry body text (headings + plain lines, not gems or actions) by days ago.
+    /// Gentler curve than calendar — text must remain readable through day 6 (last accessible day).
+    static func entryBodyOpacity(daysAgo: Int) -> Double {
+        let curve: [Double] = [1.0, 0.85, 0.72, 0.60, 0.48, 0.38, 0.30]
+        return curve[min(max(daysAgo, 0), 6)]
+    }
+
     /// Whether content older than today should render at faded ink.
     /// Today's content is always full ink regardless of edit state.
     static func textColor(daysAgo: Int) -> Color {

@@ -51,6 +51,14 @@ struct HomeView: View {
         focusedActionItemID = nil
     }
 
+    private func fetchHomeDayEntryIDs() async -> [UUID] {
+        do {
+            return try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
+        } catch {
+            return []
+        }
+    }
+
     var body: some View {
         NavigationStack(path: $gemNavigationPath) {
             mainScrollView
@@ -81,7 +89,6 @@ struct HomeView: View {
                 }
             }
             .task(id: homeDayStart) {
-                homeDayGemsShellReady = false
                 async let actions: () = actionViewModel.load(for: Date())
                 async let card: () = homeViewModel.refreshEntryCard()
                 async let habits: () = {
@@ -119,35 +126,31 @@ struct HomeView: View {
             }
             .onChange(of: showEntry) {
                 if !showEntry {
-                    Task {
-                        await homeViewModel.refreshEntryCard()
-                        do {
-                            homeDayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
-                        } catch {
-                            homeDayEntryIDs = []
-                        }
-                        homeDayGemsShellReady = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(300))
+                        async let card: () = homeViewModel.refreshEntryCard()
+                        async let ids: [UUID] = fetchHomeDayEntryIDs()
+                        async let actions: () = actionViewModel.load(for: Date())
+                        let (_, newIDs, _) = await (card, ids, actions)
+                        homeDayEntryIDs = newIDs
                         await loadHomeDayGems()
-                        // Brief delay so entry autosave + inline action inserts land before refetch.
-                        try? await Task.sleep(for: .milliseconds(400))
-                        await actionViewModel.load(for: Date())
                     }
                 }
             }
             .onChange(of: showDayPicker) {
                 if !showDayPicker {
-                    Task {
-                        await actionViewModel.load(for: Date())
-                        await homeViewModel.refreshEntryCard()
-                        do {
-                            try await habitViewModel.load()
-                        } catch {}
-                        do {
-                            homeDayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
-                        } catch {
-                            homeDayEntryIDs = []
-                        }
-                        homeDayGemsShellReady = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(300))
+                        async let card: () = homeViewModel.refreshEntryCard()
+                        async let ids: [UUID] = fetchHomeDayEntryIDs()
+                        async let actions: () = actionViewModel.load(for: Date())
+                        async let habits: () = {
+                            do {
+                                try await habitViewModel.load()
+                            } catch {}
+                        }()
+                        let (_, newIDs, _, _) = await (card, ids, actions, habits)
+                        homeDayEntryIDs = newIDs
                         await loadHomeDayGems()
                     }
                 }

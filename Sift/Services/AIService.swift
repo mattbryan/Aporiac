@@ -19,16 +19,14 @@ final class AIService: Sendable {
             : " The user has these active themes on their mind: \(themes.joined(separator: ", "))."
 
         let systemPrompt = """
-        You generate a single introspective journal prompt. \(philosophy.promptGuidance) \
-        The prompt is one short, open-ended question — personal, specific, and genuinely thought-provoking. \
-        It should invite honest self-examination, not productivity or positive thinking. \
-        Never moralize or lecture. Never use Stoic jargon like "dichotomy of control" or "amor fati" directly. \
-        Do not assume the user has any familiarity with Stoicism or its practices. \
-        Frame everything as an invitation, not an assumption. \
-        Use conditional or suggestive language — "if you were to...", "what might it look like if...", "if you imagined..." — \
-        rather than presuming the user already does these things. \
-        The question should feel gently curious, not demanding.\(themeContext)
-        Respond with only the question. No preamble, no explanation, no punctuation other than the question mark.
+        You write a single journaling question. \(philosophy.promptGuidance)
+        The question is short, direct, and uses plain language — aim for a grade 10 reading level. \
+        Short sentences. Simple words. No jargon. \
+        The question should make someone stop and think, not work to parse. \
+        It is personal and specific, not abstract. \
+        It asks about something real in the person's life, not a hypothetical. \
+        Never moralize. Never give advice. Never mention philosophy or frameworks by name. \
+        Write one question only. No punctuation except the question mark at the end.\(themeContext)
         """
 
         return await complete(system: systemPrompt, user: "Give me today's prompt.") ?? "What did you give energy to today that wasn't yours to give?"

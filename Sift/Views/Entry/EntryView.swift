@@ -29,6 +29,14 @@ struct EntryView: View {
     @State private var contentSelectionRange = NSRange(location: 0, length: 0)
     private let contentTransformTrigger = MarkdownTransformTrigger()
 
+    private var entryBodyOpacity: Double {
+        guard case .past(_, let calendarDay) = destination else { return 1.0 }
+        let today = Calendar.current.startOfDay(for: Date())
+        let entryDay = Calendar.current.startOfDay(for: calendarDay)
+        let days = Calendar.current.dateComponents([.day], from: entryDay, to: today).day ?? 0
+        return DS.entryBodyOpacity(daysAgo: max(days, 0))
+    }
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
@@ -50,7 +58,7 @@ struct EntryView: View {
                         RichTextEditor(
                             text: $viewModel.gratitudeText,
                             placeholder: "What are you grateful for today?",
-                            textColor: .siftInk,
+                            textColor: .siftInk.opacity(entryBodyOpacity),
                             listMode: .bullet,
                             onSelectionChanged: { _, _ in }
                         )
@@ -61,39 +69,39 @@ struct EntryView: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 2)
 
-                        // THEMES — always visible (selected chips link new gems on save; no separate picker).
-                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                            Text("THEMES")
-                                .siftTextStyle(.microBold)
-                                .foregroundStyle(Color.siftAccent)
-                            Text("Today's Focus")
-                                .siftTextStyle(.h2Bold)
-                                .foregroundStyle(Color.siftInk)
-                        }
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: DS.Spacing.xs) {
-                                ForEach(viewModel.activeThemes) { theme in
-                                    ThemeToggleButton(
-                                        title: theme.title,
-                                        isActive: viewModel.selectedThemeIDs.contains(theme.id),
-                                        action: { viewModel.toggleTheme(theme.id) }
-                                    )
+                        if !viewModel.activeThemes.isEmpty {
+                            // THEMES — visible only when the user has at least one active theme.
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                                Text("THEMES")
+                                    .siftTextStyle(.microBold)
+                                    .foregroundStyle(Color.siftAccent)
+                                Text("Today's Focus")
+                                    .siftTextStyle(.h2Bold)
+                                    .foregroundStyle(Color.siftInk)
+                            }
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: DS.Spacing.xs) {
+                                    ForEach(viewModel.activeThemes) { theme in
+                                        ThemeToggleButton(
+                                            title: theme.title,
+                                            isActive: viewModel.selectedThemeIDs.contains(theme.id),
+                                            action: { viewModel.toggleTheme(theme.id) }
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        if !viewModel.activeThemes.isEmpty {
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             Text("New gems you save are linked to the themes you select here.")
                                 .font(.siftCaption)
                                 .foregroundStyle(Color.siftSubtle)
                                 .padding(.top, DS.Spacing.xs)
-                        }
 
-                        Rectangle()
-                            .fill(Color.siftDivider)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 2)
+                            Rectangle()
+                                .fill(Color.siftDivider)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 2)
+                        }
 
                         // ENTRY — toggled by entryStarted
                         if entryStarted {
@@ -105,6 +113,7 @@ struct EntryView: View {
                                     text: $viewModel.contentText,
                                     placeholder: viewModel.dailyPrompt,
                                     textColor: .siftInk,
+                                    bodyOpacity: entryBodyOpacity,
                                     trigger: contentTransformTrigger,
                                     onSelectionChanged: { selected, range in
                                         contentSelectionRange = range
@@ -164,7 +173,6 @@ struct EntryView: View {
                             .foregroundStyle(Color.siftInk)
                             .frame(width: 40, height: 40)
                     }
-                    .glassEffect(.regular.interactive(), in: Circle())
                 }
             }
         }

@@ -38,12 +38,29 @@ final class EntryViewModel {
             .map(\.title)
     }
 
+    private static let promptCacheDateKey = "sift.dailyPrompt.date"
+    private static let promptCacheTextKey = "sift.dailyPrompt.text"
+
     /// Fetches the contextual daily prompt (with selected focus themes) before revealing the main writing surface.
     func prepareWritingPhase() async {
+        let today = Calendar.current.startOfDay(for: Date())
+        if let cachedDateInterval = UserDefaults.standard.object(forKey: Self.promptCacheDateKey) as? Double,
+           let cachedText = UserDefaults.standard.string(forKey: Self.promptCacheTextKey) {
+            let cachedDate = Date(timeIntervalSince1970: cachedDateInterval)
+            if Calendar.current.isDate(cachedDate, inSameDayAs: today) {
+                dailyPrompt = cachedText
+                return
+            }
+        }
+
         let raw = UserDefaults.standard.string(forKey: "selectedPhilosophies") ?? "stoicism"
         let selected = Set(raw.split(separator: ",").compactMap { Philosophy(rawValue: String($0)) })
         let philosophy = Philosophy.todaysPhilosophy(from: selected)
-        dailyPrompt = await AIService.shared.dailyPrompt(themes: selectedThemeTitles, philosophy: philosophy)
+        let prompt = await AIService.shared.dailyPrompt(themes: selectedThemeTitles, philosophy: philosophy)
+        dailyPrompt = prompt
+
+        UserDefaults.standard.set(today.timeIntervalSince1970, forKey: Self.promptCacheDateKey)
+        UserDefaults.standard.set(prompt, forKey: Self.promptCacheTextKey)
     }
 
     private var saveTask: Task<Void, Never>?

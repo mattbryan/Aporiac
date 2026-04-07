@@ -15,8 +15,30 @@ final class HomeViewModel {
     /// Set when the card reflects a loaded `Entry` row (latest for the day being refreshed).
     private(set) var displayedEntryID: UUID?
 
-    private var summaryCacheFingerprint: String?
-    private var summaryCacheText: String?
+    private static let fingerprintKey = "sift.summaryCache.fingerprint"
+    private static let textKey = "sift.summaryCache.text"
+
+    private var summaryCacheFingerprint: String? {
+        get { UserDefaults.standard.string(forKey: Self.fingerprintKey) }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: Self.fingerprintKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.fingerprintKey)
+            }
+        }
+    }
+
+    private var summaryCacheText: String? {
+        get { UserDefaults.standard.string(forKey: Self.textKey) }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: Self.textKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.textKey)
+            }
+        }
+    }
 
     private var service: SupabaseService { .shared }
 
@@ -31,8 +53,6 @@ final class HomeViewModel {
         guard service.currentUser != nil else {
             entryCardState = .startPrompt
             displayedEntryID = nil
-            summaryCacheFingerprint = nil
-            summaryCacheText = nil
             return
         }
 
@@ -42,8 +62,6 @@ final class HomeViewModel {
             guard let entry = try await service.fetchEntry(on: dayStart) else {
                 entryCardState = .startPrompt
                 displayedEntryID = nil
-                summaryCacheFingerprint = nil
-                summaryCacheText = nil
                 return
             }
 
@@ -53,8 +71,6 @@ final class HomeViewModel {
             if combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 entryCardState = .startPrompt
                 displayedEntryID = nil
-                summaryCacheFingerprint = nil
-                summaryCacheText = nil
                 return
             }
 

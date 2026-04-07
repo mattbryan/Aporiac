@@ -11,12 +11,15 @@ extension Calendar {
 struct HabitDetailView: View {
     let habit: Habit
     let viewModel: HabitViewModel
-    let onEdit: () -> Void
 
     @State private var logs: [HabitLog] = []
     @State private var displayMonth: Date = Calendar.current.startOfMonth(for: Date())
     @State private var isLoadingCalendar = true
     @State private var isInitialCalendarLoad = true
+    @State private var editTitle: String = ""
+    @State private var editFullCriteria: String = ""
+    @State private var editPartialCriteria: String = ""
+    @State private var isArchiving = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -29,10 +32,27 @@ struct HabitDetailView: View {
                 todaySection
                 siftDividerLine
                 calendarSection
+                archiveButton
+                Color.clear.frame(height: 120)
             }
         }
         .background(Color.siftSurface.ignoresSafeArea())
+        .onDisappear {
+            guard !isArchiving else { return }
+            let t = editTitle.trimmingCharacters(in: .whitespaces)
+            let f = editFullCriteria.trimmingCharacters(in: .whitespaces)
+            let p = editPartialCriteria.trimmingCharacters(in: .whitespaces)
+            let changed = t != habit.title || f != habit.fullCriteria || p != habit.partialCriteria
+            if changed && !t.isEmpty {
+                Task {
+                    try? await viewModel.update(habit: habit, title: t, fullCriteria: f, partialCriteria: p)
+                }
+            }
+        }
         .task {
+            editTitle = habit.title
+            editFullCriteria = habit.fullCriteria
+            editPartialCriteria = habit.partialCriteria
             await loadLogs()
         }
     }
@@ -49,16 +69,6 @@ struct HabitDetailView: View {
             }
             .buttonStyle(.plain)
             Spacer()
-            Button {
-                onEdit()
-            } label: {
-                Text("Edit")
-                    .font(.siftCallout)
-                    .foregroundStyle(Color.siftSubtle)
-                    .frame(height: 44)
-                    .padding(.trailing, DS.Spacing.xs)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.leading, DS.Spacing.md)
         .padding(.trailing, DS.Spacing.md)
@@ -66,9 +76,11 @@ struct HabitDetailView: View {
     }
 
     private var titleBlock: some View {
-        Text(habit.title)
-            .siftTextStyle(.h1Medium)
+        TextField("Habit name", text: $editTitle)
+            .font(.siftH1Medium)
+            .kerning(SiftTracking.h1Medium)
             .foregroundStyle(Color.siftInk)
+            .submitLabel(.done)
             .padding(.horizontal, 20)
             .padding(.top, DS.Spacing.sm)
             .padding(.bottom, DS.Spacing.xs)
@@ -83,23 +95,27 @@ struct HabitDetailView: View {
 
     private var criteriaBlock: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            criteriaRow(label: "Full credit", text: habit.fullCriteria)
-            criteriaRow(label: "Partial credit", text: habit.partialCriteria)
+            HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                Text("Full credit")
+                    .font(.siftCaption)
+                    .foregroundStyle(Color.siftSubtle)
+                    .frame(width: 80, alignment: .leading)
+                TextField("Full credit criteria", text: $editFullCriteria, axis: .vertical)
+                    .font(.siftCallout)
+                    .foregroundStyle(Color.siftInk)
+            }
+            HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                Text("Partial credit")
+                    .font(.siftCaption)
+                    .foregroundStyle(Color.siftSubtle)
+                    .frame(width: 80, alignment: .leading)
+                TextField("Partial credit criteria", text: $editPartialCriteria, axis: .vertical)
+                    .font(.siftCallout)
+                    .foregroundStyle(Color.siftInk)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, DS.Spacing.md)
-    }
-
-    private func criteriaRow(label: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: DS.Spacing.sm) {
-            Text(label)
-                .font(.siftCaption)
-                .foregroundStyle(Color.siftSubtle)
-                .frame(width: 80, alignment: .leading)
-            Text(text)
-                .font(.siftCallout)
-                .foregroundStyle(Color.siftInk)
-        }
     }
 
     private var todayLogCredit: Float? {
@@ -217,6 +233,25 @@ struct HabitDetailView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, DS.Spacing.md)
+    }
+
+    private var archiveButton: some View {
+        Button {
+            isArchiving = true
+            Task {
+                try? await viewModel.archive(habit)
+                dismiss()
+            }
+        } label: {
+            Text("Archive habit")
+                .font(.siftCallout)
+                .foregroundStyle(Color.siftSubtle)
+                .frame(maxWidth: .infinity)
+                .frame(height: DS.ButtonHeight.medium)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.top, DS.Spacing.lg)
     }
 
     private func heatCell(for date: Date) -> some View {

@@ -17,8 +17,8 @@ struct DaySummaryToken: Identifiable {
 final class DayPickerViewModel {
 
     private(set) var days: [DayPickerDay] = []
-    /// `true` on first frame so the grid does not flash empty before `onAppear` runs.
     private(set) var isLoading = true
+    var displayMonth: Date = Calendar.current.startOfMonth(for: Date())
 
     private let service: SupabaseService = .shared
 
@@ -42,31 +42,26 @@ final class DayPickerViewModel {
             try? await Task.sleep(for: .milliseconds(100))
         }
         guard let userID = service.currentUser?.id else {
-            days = Self.buildDays(entryRows: [])
+            days = []
             return
         }
 
         let calendar = Calendar.current
-        let now = Date()
-        guard let windowStart = calendar.date(byAdding: .day, value: -10, to: now) else {
-            days = Self.buildDays(entryRows: [])
+        let monthStart = displayMonth
+        guard let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else {
+            days = []
             return
         }
 
         let formatter = ISO8601DateFormatter()
-        let nowISOFormatter = ISO8601DateFormatter()
-        nowISOFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let nowISO = nowISOFormatter.string(from: now)
-        let unexpiredOrHasGem = "expires_at.gt.\(nowISO),has_gem.eq.true"
-
         let rows: [EntryCalendarRow]
         do {
             rows = try await service.client
                 .from("entries")
                 .select("id, created_at, has_gem")
                 .eq("user_id", value: userID.uuidString)
-                .gte("created_at", value: formatter.string(from: windowStart))
-                .or(unexpiredOrHasGem)
+                .gte("created_at", value: formatter.string(from: monthStart))
+                .lt("created_at", value: formatter.string(from: monthEnd))
                 .execute()
                 .value
         } catch {
@@ -74,26 +69,43 @@ final class DayPickerViewModel {
             rows = []
         }
 
-        days = Self.buildDays(entryRows: rows)
+        days = buildDays(entryRows: rows, month: monthStart)
     }
 
-    private static func buildDays(entryRows: [EntryCalendarRow]) -> [DayPickerDay] {
+    func changeMonth(by value: Int) {
+        guard let next = Calendar.current.date(byAdding: .month, value: value, to: displayMonth) else { return }
+        let currentMonth = Calendar.current.startOfMonth(for: Date())
+        if value > 0 && next > currentMonth { return }
+        displayMonth = Calendar.current.startOfMonth(for: next)
+        Task { await reload() }
+    }
+
+    var isCurrentMonth: Bool {
+        Calendar.current.isDate(displayMonth, equalTo: Date(), toGranularity: .month)
+    }
+
+    var gridDays: [DayPickerDay?] {
         let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
+        guard let range = calendar.range(of: .day, in: .month, for: displayMonth) else { return [] }
+        let firstWeekday = calendar.component(.weekday, from: displayMonth)
+        let padding = firstWeekday - 1
+        var result: [DayPickerDay?] = Array(repeating: nil, count: padding)
+        for dayNum in range {
+            let date = calendar.date(byAdding: .day, value: dayNum - 1, to: displayMonth) ?? displayMonth
+            let match = days.first(where: { calendar.isDate($0.calendarDay, inSameDayAs: date) })
+            result.append(match ?? DayPickerDay(calendarDay: date, entryID: nil, hasGem: false))
+        }
+        return result
+    }
 
-        return (0..<7).map { index in
-            let daysAgo = 6 - index
-            let dayStart = calendar.date(byAdding: .day, value: -daysAgo, to: todayStart) ?? todayStart
-
-            let sameDay = entryRows.filter { calendar.isDate($0.createdAt, inSameDayAs: dayStart) }
+    private func buildDays(entryRows: [EntryCalendarRow], month: Date) -> [DayPickerDay] {
+        let calendar = Calendar.current
+        guard let range = calendar.range(of: .day, in: .month, for: month) else { return [] }
+        return range.compactMap { dayNum -> DayPickerDay? in
+            guard let date = calendar.date(byAdding: .day, value: dayNum - 1, to: month) else { return nil }
+            let sameDay = entryRows.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }
             let best = sameDay.max(by: { $0.createdAt < $1.createdAt })
-
-            return DayPickerDay(
-                calendarDay: dayStart,
-                daysAgo: daysAgo,
-                entryID: best?.id,
-                hasGem: best?.hasGem ?? false
-            )
+            return DayPickerDay(calendarDay: date, entryID: best?.id, hasGem: best?.hasGem ?? false)
         }
     }
 }
@@ -102,7 +114,6 @@ final class DayPickerViewModel {
 
 struct DayPickerDay: Identifiable {
     let calendarDay: Date
-    let daysAgo: Int
     let entryID: UUID?
     let hasGem: Bool
 
@@ -110,8 +121,17 @@ struct DayPickerDay: Identifiable {
 
     var hasEntry: Bool { entryID != nil }
 
-    /// Today closes the calendar sheet (returns to Home); past days only when an entry exists.
-    var isTappable: Bool { daysAgo == 0 || entryID != nil }
+    var daysAgo: Int {
+        let today = Calendar.current.startOfDay(for: Date())
+        let day = Calendar.current.startOfDay(for: calendarDay)
+        return Calendar.current.dateComponents([.day], from: day, to: today).day ?? 0
+    }
+
+    var isToday: Bool { daysAgo == 0 }
+    var isFuture: Bool { daysAgo < 0 }
+
+    /// Today dismisses the sheet back to home; past days only when an entry exists.
+    var isTappable: Bool { isToday || hasEntry }
 }
 
 // MARK: - View
@@ -132,23 +152,67 @@ struct DayPickerView: View {
 
             Spacer(minLength: DS.Spacing.lg)
 
-            if viewModel.isLoading {
-                SiftSkeletonShimmer {
-                    DayPickerWeekSkeleton()
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                // Month navigation
+                HStack {
+                    Button {
+                        viewModel.changeMonth(by: -1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.siftSubtle)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    Text(viewModel.displayMonth, format: .dateTime.month(.wide).year())
+                        .font(.siftCallout)
+                        .foregroundStyle(Color.siftInk)
+                    Spacer()
+                    Button {
+                        viewModel.changeMonth(by: 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(viewModel.isCurrentMonth ? Color.siftSubtle.opacity(0.3) : Color.siftSubtle)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.isCurrentMonth)
                 }
-                .padding(.horizontal, DS.Spacing.md)
-                .frame(maxWidth: .infinity)
-            } else {
-                HStack(spacing: DS.Spacing.xs) {
-                    ForEach(viewModel.days) { day in
-                        dayCell(day)
+
+                // Day of week labels
+                HStack(spacing: 0) {
+                    ForEach(Array(["S", "M", "T", "W", "T", "F", "S"].enumerated()), id: \.offset) { _, d in
+                        Text(d)
+                            .font(.siftCaption)
+                            .foregroundStyle(Color.siftSubtle)
                             .frame(maxWidth: .infinity)
-                            .aspectRatio(1, contentMode: .fit)
                     }
                 }
-                .transaction { $0.animation = nil }
-                .padding(.horizontal, DS.Spacing.md)
+
+                // Calendar grid
+                if viewModel.isLoading {
+                    SiftSkeletonShimmer {
+                        HabitHeatMapSkeleton()
+                    }
+                } else {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: DS.Spacing.xs), count: 7),
+                        spacing: DS.Spacing.xs
+                    ) {
+                        ForEach(Array(viewModel.gridDays.enumerated()), id: \.offset) { _, day in
+                            if let day {
+                                dayCell(day)
+                            } else {
+                                Color.clear
+                                    .aspectRatio(1, contentMode: .fit)
+                            }
+                        }
+                    }
+                }
             }
+            .padding(.horizontal, DS.Spacing.md)
 
             Spacer(minLength: DS.Spacing.lg)
         }
@@ -165,79 +229,54 @@ struct DayPickerView: View {
 
     @ViewBuilder
     private func dayCell(_ day: DayPickerDay) -> some View {
-        let content = cellContent(day)
+        let cell = dayCellContent(day)
         if day.isTappable {
             Button {
-                if day.daysAgo == 0 {
+                if day.isToday {
                     dismiss()
-                } else if day.entryID != nil {
-                    daySummaryToken = DaySummaryToken(calendarDay: day.calendarDay, knownEntryID: day.entryID)
+                } else if let entryID = day.entryID {
+                    daySummaryToken = DaySummaryToken(calendarDay: day.calendarDay, knownEntryID: entryID)
                 }
             } label: {
-                content
+                cell
             }
             .buttonStyle(.plain)
         } else {
-            content
+            cell
         }
     }
 
-    private func cellContent(_ day: DayPickerDay) -> some View {
-        let calendar = Calendar.current
-        let dayNumber = calendar.component(.day, from: day.calendarDay)
-        let monthAbbrev = monthAbbreviation(for: day.calendarDay)
-
+    private func dayCellContent(_ day: DayPickerDay) -> some View {
         let fill: Color
-        let labelColor: Color
-
-        if day.hasGem {
+        if day.isFuture {
+            fill = Color.siftInk.opacity(0.04)
+        } else if day.hasGem {
             fill = Color.siftGem
-            labelColor = Color.siftContrastLight
         } else if day.hasEntry {
             fill = Color.siftInk.opacity(DS.calendarDayOpacity(daysAgo: day.daysAgo))
-            labelColor = Color.siftContrastLight
         } else {
             fill = Color.siftInk.opacity(0.06)
-            labelColor = .siftSubtle
         }
 
-        let cell = ZStack {
-            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                .fill(fill)
+        let labelColor: Color = (day.hasGem || day.hasEntry) ? Color.siftContrastLight : Color.siftSubtle
+        let dayNumber = Calendar.current.component(.day, from: day.calendarDay)
 
-            VStack(spacing: DS.Spacing.xs) {
+        return ZStack {
+            RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous)
+                .fill(fill)
+            VStack(spacing: 2) {
                 Text("\(dayNumber)")
                     .font(.siftCaption)
                     .foregroundStyle(labelColor)
-
-                if day.daysAgo == 0 {
+                if day.isToday {
                     Circle()
                         .fill(labelColor)
                         .frame(width: DS.Spacing.xs, height: DS.Spacing.xs)
                 }
-
-                Text(monthAbbrev)
-                    .font(.siftMicroBold)
-                    .kerning(SiftTracking.microBold)
-                    .foregroundStyle(labelColor)
             }
         }
-        .opacity(emptyPastDayOpacity(for: day))
-        return cell
-    }
-
-    private func emptyPastDayOpacity(for day: DayPickerDay) -> Double {
-        if day.daysAgo > 0, !day.hasEntry {
-            return 0.35
-        }
-        return 1.0
-    }
-
-    private func monthAbbreviation(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.autoupdatingCurrent
-        formatter.setLocalizedDateFormatFromTemplate("MMM")
-        return formatter.string(from: date)
+        .aspectRatio(1, contentMode: .fit)
+        .opacity(day.isFuture || (!day.hasEntry && !day.isToday) ? 0.35 : 1.0)
     }
 }
 

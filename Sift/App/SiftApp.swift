@@ -110,6 +110,7 @@ struct SiftApp: App {
             }
             .task {
                 await SupabaseService.shared.initialize()
+                await SupabaseService.shared.purgeExpiredEntries()
                 await checkReviewTriggers()
             }
             .preferredColorScheme(preferredColorScheme)

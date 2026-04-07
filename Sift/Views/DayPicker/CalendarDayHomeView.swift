@@ -21,6 +21,8 @@ struct CalendarDayHomeView: View {
 
     /// Until habits/actions/entry card finish their first load, show a skeleton on the entry card.
     @State private var isEntryCardInitialLoad = true
+    /// Set after the first successful load for this view instance; prevents skeleton flash on refresh.
+    @State private var hasCompletedInitialLoad = false
 
     @State private var dayGemsWithThemes: [GemWithThemes] = []
     @State private var isDayGemsLoading = false
@@ -34,6 +36,12 @@ struct CalendarDayHomeView: View {
 
     private var isToday: Bool {
         Calendar.current.isDate(dayStart, inSameDayAs: Date())
+    }
+
+    /// True when the day is more than 7 days in the past — entry has expired and should not be shown.
+    private var isEntryExpired: Bool {
+        guard let threshold = Calendar.current.date(byAdding: .day, value: -7, to: Calendar.current.startOfDay(for: Date())) else { return false }
+        return dayStart < threshold
     }
 
     /// Gems appear whenever at least one entry row exists for this calendar day (includes gems on non-latest sessions).
@@ -57,6 +65,14 @@ struct CalendarDayHomeView: View {
 
     private func dismissTypingFocus() {
         focusedActionItemID = nil
+    }
+
+    private func fetchDayEntryIDs() async -> [UUID] {
+        do {
+            return try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
+        } catch {
+            return []
+        }
     }
 
     var body: some View {
@@ -101,15 +117,16 @@ struct CalendarDayHomeView: View {
             }
         }
         .task(id: dayStart) {
-            isEntryCardInitialLoad = true
-            async let card: () = homeViewModel.refreshEntryCard(for: dayStart)
+            isEntryCardInitialLoad = !hasCompletedInitialLoad
             async let actions: () = actionViewModel.load(for: dayStart)
             async let habits: () = {
                 do {
                     try await habitViewModel.load(for: dayStart)
                 } catch {}
             }()
-            await card
+            if !isEntryExpired {
+                await homeViewModel.refreshEntryCard(for: dayStart)
+            }
             await actions
             await habits
             do {
@@ -119,6 +136,7 @@ struct CalendarDayHomeView: View {
                 dayEntryIDs = []
             }
             isEntryCardInitialLoad = false
+            hasCompletedInitialLoad = true
             await loadDayGems()
         }
         .sheet(isPresented: $showSettings) {
@@ -131,16 +149,14 @@ struct CalendarDayHomeView: View {
         }
         .onChange(of: showEntry) {
             if !showEntry {
-                Task {
-                    await homeViewModel.refreshEntryCard(for: dayStart)
-                    do {
-                        dayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
-                    } catch {
-                        dayEntryIDs = []
-                    }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(300))
+                    async let card: () = homeViewModel.refreshEntryCard(for: dayStart)
+                    async let ids: [UUID] = fetchDayEntryIDs()
+                    async let actions: () = actionViewModel.load(for: dayStart)
+                    let (_, newIDs, _) = await (card, ids, actions)
+                    dayEntryIDs = newIDs
                     await loadDayGems()
-                    try? await Task.sleep(for: .milliseconds(400))
-                    await actionViewModel.load(for: dayStart)
                 }
             }
         }
@@ -212,13 +228,15 @@ struct CalendarDayHomeView: View {
                 dateHeading
                     .padding(.top, DS.Spacing.sm)
 
-                entryCard
-                    .padding(.horizontal, DS.Spacing.md)
-                    .padding(.top, DS.Spacing.lg)
-                    .padding(.bottom, DS.Spacing.lg)
+                if !isEntryExpired {
+                    entryCard
+                        .padding(.horizontal, DS.Spacing.md)
+                        .padding(.top, DS.Spacing.lg)
+                        .padding(.bottom, DS.Spacing.lg)
+                }
 
                 HomeDayGemsSection(
-                    sectionLabelTop: 0,
+                    sectionLabelTop: isEntryExpired ? DS.Spacing.lg : 0,
                     showsSection: gemsSectionShown,
                     isLoading: isDayGemsLoading,
                     gems: dayGemsWithThemes,

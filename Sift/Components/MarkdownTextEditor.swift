@@ -322,6 +322,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var textColor: Color = .siftInk
+    /// Opacity multiplier for plain body and heading text; gems and actions stay full ink.
+    var bodyOpacity: Double = 1.0
     var trigger: MarkdownTransformTrigger? = nil
     var onSelectionChanged: ((Bool, NSRange) -> Void)? = nil
 
@@ -381,7 +383,11 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
 
         textView.text = text
         context.coordinator.reapplyMarkdownAttributes()
+        context.coordinator.lastBodyOpacity = bodyOpacity
         context.coordinator.refreshPlaceholder(placeholder: placeholder, isEmpty: text.isEmpty)
+
+        let accessory = context.coordinator.makeKeyboardAccessoryView()
+        textView.inputAccessoryView = accessory
 
         return textView
     }
@@ -404,6 +410,11 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
         if text != tvText {
             uiView.text = text
             coordinator.reapplyMarkdownAttributes()
+            coordinator.lastBodyOpacity = bodyOpacity
+            uiView.invalidateIntrinsicContentSize()
+        } else if coordinator.lastBodyOpacity != bodyOpacity {
+            coordinator.reapplyMarkdownAttributes()
+            coordinator.lastBodyOpacity = bodyOpacity
             uiView.invalidateIntrinsicContentSize()
         }
     }
@@ -438,6 +449,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
         fileprivate var lastPlaceholder: String = ""
         fileprivate var lastTextEmpty: Bool = true
         fileprivate var lastHadSelection: Bool = false
+        fileprivate var lastBodyOpacity: Double = .nan
 
         fileprivate init(_ parent: MarkdownTextEditor) {
             self.parent = parent
@@ -513,6 +525,99 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             }
         }
 
+        /// Keyboard toolbar: block shortcuts (gem, action, headings). Matches entry highlight toolbar styling.
+        fileprivate func makeKeyboardAccessoryView() -> UIView {
+            let accessory = UIView()
+            accessory.backgroundColor = UIColor(Color.siftSurface)
+            accessory.translatesAutoresizingMaskIntoConstraints = false
+
+            let topBorder = UIView()
+            topBorder.translatesAutoresizingMaskIntoConstraints = false
+            topBorder.backgroundColor = UIColor(Color.siftDivider)
+            accessory.addSubview(topBorder)
+
+            let stack = UIStackView()
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            stack.axis = .horizontal
+            stack.alignment = .center
+            stack.spacing = DS.Spacing.md
+            stack.distribution = .fill
+
+            let font = MarkdownEditorTypography.p1MediumUIFont()
+            let specs: [(label: String, color: Color, prefix: String)] = [
+                ("Gem", .siftGem, "> "),
+                ("Action", .siftAction, MarkdownActionPrefixes.toolbarIncomplete),
+                ("H1", .siftSubtle, "# "),
+                ("H2", .siftSubtle, "## "),
+            ]
+            for spec in specs {
+                let button = UIButton(type: .system)
+                button.setTitle(spec.label, for: .normal)
+                button.setTitleColor(UIColor(spec.color), for: .normal)
+                button.titleLabel?.font = font
+                button.addAction(
+                    UIAction { [weak self] _ in
+                        self?.insertBlockLine(prefix: spec.prefix)
+                    },
+                    for: .touchUpInside
+                )
+                stack.addArrangedSubview(button)
+            }
+
+            accessory.addSubview(stack)
+
+            let borderHeight: CGFloat = 1
+            let rowHeight: CGFloat = 44
+            NSLayoutConstraint.activate([
+                accessory.heightAnchor.constraint(equalToConstant: borderHeight + rowHeight),
+
+                topBorder.topAnchor.constraint(equalTo: accessory.topAnchor),
+                topBorder.leadingAnchor.constraint(equalTo: accessory.leadingAnchor),
+                topBorder.trailingAnchor.constraint(equalTo: accessory.trailingAnchor),
+                topBorder.heightAnchor.constraint(equalToConstant: borderHeight),
+
+                stack.leadingAnchor.constraint(equalTo: accessory.leadingAnchor, constant: DS.Spacing.md),
+                stack.topAnchor.constraint(equalTo: topBorder.bottomAnchor),
+                stack.bottomAnchor.constraint(equalTo: accessory.bottomAnchor),
+            ])
+
+            return accessory
+        }
+
+        fileprivate func insertBlockLine(prefix: String) {
+            guard let textView else { return }
+            let text = textView.text ?? ""
+            let ns = text as NSString
+            let cursor = textView.selectedRange.location
+            let safeCursor = min(max(cursor, 0), ns.length)
+
+            var lineStart = 0, contentsEnd = 0
+            if ns.length > 0 {
+                ns.getLineStart(&lineStart, end: nil, contentsEnd: &contentsEnd,
+                                for: NSRange(location: min(safeCursor, max(0, ns.length - 1)), length: 0))
+            }
+            let lineContents = ns.substring(with: NSRange(location: lineStart, length: contentsEnd - lineStart))
+            let isEmptyLine = lineContents.trimmingCharacters(in: .whitespaces).isEmpty
+
+            let insertion: String
+            let insertAt: Int
+            if isEmptyLine {
+                insertion = prefix
+                insertAt = lineStart
+            } else {
+                insertion = "\n" + prefix
+                insertAt = safeCursor
+            }
+
+            let mutable = NSMutableString(string: text)
+            mutable.insert(insertion, at: insertAt)
+            textView.text = mutable as String
+
+            let newCursor = min(insertAt + (insertion as NSString).length, (textView.text ?? "").count)
+            textView.selectedRange = NSRange(location: newCursor, length: 0)
+            textViewDidChange(textView)
+        }
+
         fileprivate func baseTypingAttributes(textColor: UIColor) -> [NSAttributedString.Key: Any] {
             [
                 .font: MarkdownEditorTypography.p2RegularUIFont(),
@@ -526,6 +631,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             let nsText = text as NSString
             let storage = textView.textStorage
             let uiTextColor = UIColor(parent.textColor)
+            let bodyTextColor = uiTextColor.withAlphaComponent(CGFloat(parent.bodyOpacity))
             let len = nsText.length
             let fullRange = NSRange(location: 0, length: len)
 
@@ -536,7 +642,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                 storage.setAttributes(
                     [
                         .font: baseFont,
-                        .foregroundColor: uiTextColor,
+                        .foregroundColor: bodyTextColor,
                     ],
                     range: fullRange
                 )
@@ -566,9 +672,9 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                     let lineString = nsText.substring(with: contentsRange)
 
                     if lineString.hasPrefix("## ") {
-                        applyHeading2Attributes(to: storage, lineRange: lineRange, prefixLength: 3, textColor: uiTextColor)
+                        applyHeading2Attributes(to: storage, lineRange: lineRange, prefixLength: 3, textColor: bodyTextColor)
                     } else if lineString.hasPrefix("# ") {
-                        applyHeading1Attributes(to: storage, lineRange: lineRange, prefixLength: 2, textColor: uiTextColor)
+                        applyHeading1Attributes(to: storage, lineRange: lineRange, prefixLength: 2, textColor: bodyTextColor)
                     } else if lineString.hasPrefix("> ") {
                         applyGemAttributes(to: storage, lineRange: lineRange, prefixLength: 2, textColor: uiTextColor)
                     } else if MarkdownActionPrefixes.isCompleteTaskLine(lineString) {
@@ -595,11 +701,11 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                 storage.endEditing()
             }
 
-            textView.typingAttributes = baseTypingAttributes(textColor: uiTextColor)
+            textView.typingAttributes = baseTypingAttributes(textColor: bodyTextColor)
             textView.invalidateIntrinsicContentSize()
         }
 
-        /// Headings: no `paragraphStyle` (negative `firstLineHeadIndent` was unreliable and affected layout). Prefix stays in the string but is clear; visible title sits slightly right of the column edge — acceptable vs body/gem/action alignment.
+        /// Headings: no `paragraphStyle` (negative `firstLineHeadIndent` was unreliable and affected layout). Prefix stays in the string but is clear and uses a near-zero font size (0.1pt) so it occupies no horizontal space. Visible title left-aligns with body text at x=0.
         private func applyHeading1Attributes(to storage: NSTextStorage, lineRange: NSRange, prefixLength: Int, textColor: UIColor) {
             let h2Font = MarkdownEditorTypography.h2BoldUIFont
             storage.addAttribute(.font, value: h2Font, range: lineRange)
@@ -607,6 +713,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             let prefixRange = NSRange(location: lineRange.location, length: min(prefixLength, lineRange.length))
             guard NSMaxRange(prefixRange) <= storage.length else { return }
             storage.addAttribute(.foregroundColor, value: UIColor.clear, range: prefixRange)
+            storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
         }
 
         private func applyHeading2Attributes(to storage: NSTextStorage, lineRange: NSRange, prefixLength: Int, textColor: UIColor) {
@@ -616,6 +723,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             let prefixRange = NSRange(location: lineRange.location, length: min(prefixLength, lineRange.length))
             guard NSMaxRange(prefixRange) <= storage.length else { return }
             storage.addAttribute(.foregroundColor, value: UIColor.clear, range: prefixRange)
+            storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
         }
 
         private func applyGemAttributes(to storage: NSTextStorage, lineRange: NSRange, prefixLength: Int, textColor: UIColor) {
@@ -817,8 +925,9 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
 
         private func typingAttributesForCurrentPosition(textView: UITextView) -> [NSAttributedString.Key: Any] {
             let uiTextColor = UIColor(parent.textColor)
+            let bodyTextColor = uiTextColor.withAlphaComponent(CGFloat(parent.bodyOpacity))
             guard let text = textView.text, !text.isEmpty else {
-                return baseTypingAttributes(textColor: uiTextColor)
+                return baseTypingAttributes(textColor: bodyTextColor)
             }
             let ns = text as NSString
             let len = ns.length
@@ -833,14 +942,14 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                 let font = MarkdownEditorTypography.p1MediumUIFont()
                 return [
                     .font: font,
-                    .foregroundColor: uiTextColor,
+                    .foregroundColor: bodyTextColor,
                 ]
             }
             if lineContents.hasPrefix("# ") {
                 let font = MarkdownEditorTypography.h2BoldUIFont
                 return [
                     .font: font,
-                    .foregroundColor: uiTextColor,
+                    .foregroundColor: bodyTextColor,
                 ]
             }
             if lineContents.hasPrefix("> ") {
@@ -855,7 +964,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                     .foregroundColor: uiTextColor,
                 ]
             }
-            return baseTypingAttributes(textColor: uiTextColor)
+            return baseTypingAttributes(textColor: bodyTextColor)
         }
     }
 }
