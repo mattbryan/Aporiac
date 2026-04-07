@@ -138,7 +138,11 @@ struct GemsPageGemRow: View {
 struct GemDetailView: View {
     let gemID: UUID
     @Binding var navigationPath: NavigationPath
+    /// Set to `true` when presented as a sheet rather than pushed onto a navigation stack.
+    /// Shows a close button and auto-focuses the text field after loading.
+    var isSheet: Bool = false
 
+    @Environment(\.dismiss) private var dismiss
     @State private var isLoading = true
     @State private var item: GemWithThemes?
     @State private var allThemes: [Theme] = []
@@ -169,6 +173,17 @@ struct GemDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbar {
+            if isSheet {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.siftSubtle)
+                    }
+                }
+            }
             if let item, !isLoading {
                 ToolbarItem(placement: .principal) {
                     Text(item.gem.createdAt, format: .dateTime.month(.abbreviated).day().year())
@@ -205,6 +220,9 @@ struct GemDetailView: View {
         }
         .task(id: gemID) {
             await load()
+            if isSheet {
+                fragmentFieldFocused = true
+            }
         }
     }
 
@@ -347,9 +365,7 @@ struct GemDetailView: View {
         do {
             try await SupabaseService.shared.deleteGem(id: gemID)
             NotificationCenter.default.post(name: .siftJournalEntitiesDidSync, object: nil)
-            if !navigationPath.isEmpty {
-                navigationPath.removeLast()
-            }
+            dismiss()
         } catch {
             print("[GemDetail] delete failed: \(error)")
         }

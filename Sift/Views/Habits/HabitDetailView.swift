@@ -76,7 +76,7 @@ struct HabitDetailView: View {
     }
 
     private var titleBlock: some View {
-        TextField("Habit name", text: $editTitle)
+        TextField("Name your habit", text: $editTitle)
             .font(.siftH1Medium)
             .kerning(SiftTracking.h1Medium)
             .foregroundStyle(Color.siftInk)
@@ -100,7 +100,7 @@ struct HabitDetailView: View {
                     .font(.siftCaption)
                     .foregroundStyle(Color.siftSubtle)
                     .frame(width: 80, alignment: .leading)
-                TextField("Full credit criteria", text: $editFullCriteria, axis: .vertical)
+                TextField("What is your ideal daily goal?", text: $editFullCriteria, axis: .vertical)
                     .font(.siftCallout)
                     .foregroundStyle(Color.siftInk)
             }
@@ -109,7 +109,7 @@ struct HabitDetailView: View {
                     .font(.siftCaption)
                     .foregroundStyle(Color.siftSubtle)
                     .frame(width: 80, alignment: .leading)
-                TextField("Partial credit criteria", text: $editPartialCriteria, axis: .vertical)
+                TextField("What is your minimum daily effort?", text: $editPartialCriteria, axis: .vertical)
                     .font(.siftCallout)
                     .foregroundStyle(Color.siftInk)
             }

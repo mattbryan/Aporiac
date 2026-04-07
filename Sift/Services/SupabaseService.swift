@@ -9,6 +9,8 @@ final class SupabaseService {
 
     let client: SupabaseClient
     private(set) var currentUser: User?
+    /// True once `initialize()` has completed — used to gate the auth splash.
+    private(set) var isAuthReady = false
 
     /// Debounced gem text saves keyed by gem id.
     private var gemFragmentSaveTasks: [UUID: Task<Void, Never>] = [:]
@@ -26,26 +28,149 @@ final class SupabaseService {
 
     var isAuthenticated: Bool { currentUser != nil }
 
-    /// Restores an existing session or signs in anonymously on first launch.
+    /// Restores an existing named session on launch. Sets `isAuthReady` when done.
     func initialize() async {
         do {
             let session = try await client.auth.session
             currentUser = session.user
             print("[Auth] Restored session for \(session.user.id)")
         } catch {
-            print("[Auth] No existing session — signing in anonymously")
-            await signInAnonymously()
+            print("[Auth] No existing session — showing onboarding")
+            currentUser = nil
+        }
+        isAuthReady = true
+    }
+
+    /// Signs in with an Apple identity token. Nonce must be the raw (unhashed) value
+    /// used to generate the SHA-256 hash passed to Apple's authorization request.
+    func signInWithApple(idToken: String, nonce: String) async throws {
+        let session = try await client.auth.signInWithIdToken(
+            credentials: .init(provider: .apple, idToken: idToken, nonce: nonce)
+        )
+        currentUser = session.user
+        print("[Auth] Apple sign-in succeeded: \(session.user.id)")
+    }
+
+    /// Signs the current user out and clears local session state.
+    func signOut() async throws {
+        try await client.auth.signOut()
+        currentUser = nil
+        print("[Auth] Signed out")
+    }
+
+    /// Deletes all user data and signs out. Full auth.users deletion requires a
+    /// server-side edge function — TODO: wire up when edge functions are deployed.
+    func deleteAccount() async throws {
+        guard let userID = currentUser?.id else { return }
+
+        // Delete sift schema data
+        try await client.from("gem_themes")
+            .delete()
+            .in("gem_id", values: gemIDsForUser(userID))
+            .execute()
+        let schemas: [String] = ["gems", "entries", "themes", "habits", "habit_logs", "action_items", "action_themes"]
+        for table in schemas {
+            try? await client.from(table)
+                .delete()
+                .eq("user_id", value: userID.uuidString)
+                .execute()
+        }
+        try? await client.schema("public").from("user_settings")
+            .delete()
+            .eq("user_id", value: userID.uuidString)
+            .execute()
+
+        try await client.auth.signOut()
+        currentUser = nil
+        print("[Auth] Account deleted for \(userID)")
+    }
+
+    // MARK: - Quick Create (compose menu)
+
+    /// Gets today's entry or silently creates one if none exists yet.
+    private func getOrCreateTodayEntry(userID: UUID) async throws -> Entry {
+        if let existing = try await fetchTodayEntry() { return existing }
+        let now = Date()
+        let expiry = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
+        let entry = Entry(
+            id: UUID(),
+            userID: userID,
+            gratitudeContent: "",
+            content: "",
+            createdAt: now,
+            expiresAt: expiry,
+            hasGem: false
+        )
+        try await client.from("entries").insert(entry).execute()
+        return entry
+    }
+
+    /// Creates a new empty gem attached to today's entry (creating the entry if needed),
+    /// appends a `> ` marker to the entry body, and returns the new gem's ID.
+    func createQuickGem() async throws -> UUID {
+        guard let userID = currentUser?.id else { throw QuickCreateError.notAuthenticated }
+
+        let entry = try await getOrCreateTodayEntry(userID: userID)
+        let gemID = UUID()
+
+        let insert = QuickGemInsert(
+            id: gemID, userID: userID, entryID: entry.id,
+            content: "", rangeStart: 0, rangeEnd: 0
+        )
+        try await client.from("gems").insert(insert).execute()
+
+        let separator = entry.content.isEmpty ? "" : "\n"
+        let newContent = entry.content + separator + "> "
+        try? await client.from("entries")
+            .update(EntryContentFieldOnlyUpdate(content: newContent))
+            .eq("id", value: entry.id.uuidString)
+            .execute()
+        try? await client.from("entries")
+            .update(SupabaseEntryHasGemUpdate(hasGem: true))
+            .eq("id", value: entry.id.uuidString)
+            .execute()
+
+        return gemID
+    }
+
+    /// Inserts an action item with the given content and appends a task line to today's entry body.
+    func createQuickAction(content: String) async throws {
+        guard let userID = currentUser?.id else { throw QuickCreateError.notAuthenticated }
+        guard let expiresAt = Calendar.current.date(byAdding: .day, value: 30, to: Date()) else { return }
+
+        let todayEntry = try? await fetchTodayEntry()
+        let item = ActionItem(
+            id: UUID(),
+            userID: userID,
+            entryID: todayEntry?.id,
+            content: content,
+            completed: false,
+            rangeStart: nil,
+            rangeEnd: nil,
+            createdAt: Date(),
+            carriedForward: false,
+            expiresAt: expiresAt
+        )
+        try await client.from("action_items").insert(item).execute()
+
+        if let entry = todayEntry {
+            let separator = entry.content.isEmpty ? "" : "\n"
+            let newContent = entry.content + separator + "- [ ] \(content)"
+            try? await client.from("entries")
+                .update(EntryContentFieldOnlyUpdate(content: newContent))
+                .eq("id", value: entry.id.uuidString)
+                .execute()
         }
     }
 
-    private func signInAnonymously() async {
-        do {
-            let session = try await client.auth.signInAnonymously()
-            currentUser = session.user
-            print("[Auth] Anonymous sign-in succeeded: \(session.user.id)")
-        } catch {
-            print("[Auth] Anonymous sign-in failed: \(error)")
-        }
+    private func gemIDsForUser(_ userID: UUID) async -> [String] {
+        let gems: [SupabaseIDOnlyRow] = (try? await client
+            .from("gems")
+            .select("id")
+            .eq("user_id", value: userID.uuidString)
+            .execute()
+            .value) ?? []
+        return gems.map(\.id.uuidString)
     }
 
     /// Today's entry row if one exists, without creating a new row.
@@ -210,6 +335,42 @@ final class SupabaseService {
         let linkedThemes = gemThemeRows.compactMap { themeByID[$0.themeID] }
 
         return GemWithThemes(gem: gem, themes: linkedThemes)
+    }
+
+    /// True if the user has at least one active theme created more than `olderThan` seconds ago.
+    func hasActiveThemeOlderThan(_ interval: TimeInterval) async -> Bool {
+        guard let userID = currentUser?.id else { return false }
+        let cutoff = Date().addingTimeInterval(-interval)
+        var formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let rows: [SupabaseIDOnlyRow] = (try? await client
+            .from("themes")
+            .select("id")
+            .eq("user_id", value: userID.uuidString)
+            .eq("active", value: true)
+            .lt("created_at", value: formatter.string(from: cutoff))
+            .limit(1)
+            .execute()
+            .value) ?? []
+        return !rows.isEmpty
+    }
+
+    /// True if the user has at least one active habit created more than `olderThan` seconds ago.
+    func hasActiveHabitOlderThan(_ interval: TimeInterval) async -> Bool {
+        guard let userID = currentUser?.id else { return false }
+        let cutoff = Date().addingTimeInterval(-interval)
+        var formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let rows: [SupabaseIDOnlyRow] = (try? await client
+            .from("habits")
+            .select("id")
+            .eq("user_id", value: userID.uuidString)
+            .eq("active", value: true)
+            .lt("created_at", value: formatter.string(from: cutoff))
+            .limit(1)
+            .execute()
+            .value) ?? []
+        return !rows.isEmpty
     }
 
     /// Active themes for the current user (same filter as gem list chips).
@@ -652,4 +813,30 @@ private struct ActionCompletionFallbackStringPatch: Encodable {
 private struct EntryContentRow: Decodable {
     let id: UUID
     let content: String
+}
+
+private struct SupabaseIDOnlyRow: Decodable, Sendable {
+    let id: UUID
+}
+
+private struct QuickGemInsert: Encodable, Sendable {
+    let id: UUID
+    let userID: UUID
+    let entryID: UUID
+    let content: String
+    let rangeStart: Int
+    let rangeEnd: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userID = "user_id"
+        case entryID = "entry_id"
+        case content
+        case rangeStart = "range_start"
+        case rangeEnd = "range_end"
+    }
+}
+
+enum QuickCreateError: Error {
+    case notAuthenticated
 }

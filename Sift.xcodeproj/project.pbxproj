@@ -16,6 +16,9 @@
 		199DD6B72F80147A00E9DE0C /* ThemesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B42F80147A00E9DE0C /* ThemesView.swift */; };
 		199DD6B92F80239B00E9DE0C /* HabitDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B82F80239B00E9DE0C /* HabitDetailView.swift */; };
 		19BCB7712F82C5230046F0C3 /* MarkdownTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */; };
+		19F730A52F855366005D2284 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F730A32F855366005D2284 /* OnboardingView.swift */; };
+		19F730AB2F85538A005D2284 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F730A82F85538A005D2284 /* SettingsView.swift */; };
+		19F730AD2F8562C0005D2284 /* QuickActionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F730AC2F8562C0005D2284 /* QuickActionSheet.swift */; };
 		1E3A4EAF34BAB0A01DFB2E69 /* ActionItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF5B38C82769CAC6E7176AB /* ActionItemViewModel.swift */; };
 		298E0E7FF27BAE2DC25B6674 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */; };
 		2FB3AF15B4D1133AE5EB398E /* EntryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 782C04E47936E0F9F289A31D /* EntryViewModel.swift */; };
@@ -83,6 +86,12 @@
 		199DD7232F8173B000E9DE0C /* Satoshi-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Medium.otf"; sourceTree = "<group>"; };
 		199DD7242F8173B000E9DE0C /* Satoshi-MediumItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-MediumItalic.otf"; sourceTree = "<group>"; };
 		19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextEditor.swift; sourceTree = "<group>"; };
+		19F730A12F85531F005D2284 /* Sift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sift.entitlements; sourceTree = "<group>"; };
+		19F730A22F855366005D2284 /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		19F730A32F855366005D2284 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		19F730A72F85538A005D2284 /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		19F730A82F85538A005D2284 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		19F730AC2F8562C0005D2284 /* QuickActionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionSheet.swift; sourceTree = "<group>"; };
 		1D0F7C119ACC397D49AACBF9 /* Gem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gem.swift; sourceTree = "<group>"; };
 		24DF29B9AF3D71054B551C6D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		2A2A5329070E51736D950FFB /* EntitlementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementService.swift; sourceTree = "<group>"; };
@@ -183,6 +192,24 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		19F730A42F855366005D2284 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				19F730A22F855366005D2284 /* .gitkeep */,
+				19F730A32F855366005D2284 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		19F730A92F85538A005D2284 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				19F730A72F85538A005D2284 /* .gitkeep */,
+				19F730A82F85538A005D2284 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		45CA59FC210B6C618C2FB69C /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -209,6 +236,8 @@
 				077E5F9287C61D9C4B102D76 /* Habits */,
 				AFD056453B814C79328D4F97 /* Home */,
 				199DD6B52F80147A00E9DE0C /* Themes */,
+				19F730A42F855366005D2284 /* Onboarding */,
+				19F730A92F85538A005D2284 /* Settings */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -224,6 +253,7 @@
 		832471A25C3BA8E0A669138D /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				19F730AC2F8562C0005D2284 /* QuickActionSheet.swift */,
 				19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */,
 				24DF29B9AF3D71054B551C6D /* DesignSystem.swift */,
 				E3C4D5E6F708192A3B4C6E20 /* HomeListInteractions.swift */,
@@ -303,6 +333,7 @@
 		F98CE90785F999E3B584CF1B /* Sift */ = {
 			isa = PBXGroup;
 			children = (
+				19F730A12F85531F005D2284 /* Sift.entitlements */,
 				194053DB2F8189DE008093E2 /* Assets.xcassets */,
 				199DD70D2F81727400E9DE0C /* Resources */,
 				0B4010C7BA5B6D0C9DFE0520 /* Info.plist */,
@@ -411,12 +442,15 @@
 				2FB3AF15B4D1133AE5EB398E /* EntryViewModel.swift in Sources */,
 				0EB4664770E4EA66A87BA5AE /* Gem.swift in Sources */,
 				A8F1E2D3C4B5968778695A02 /* GemCard.swift in Sources */,
+				19F730AD2F8562C0005D2284 /* QuickActionSheet.swift in Sources */,
 				5478FCA5B122F9859849C1B9 /* GemViewModel.swift in Sources */,
 				A8F1E2D3C4B5968778695A04 /* GemsView.swift in Sources */,
 				199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */,
 				D257288FE57FEB8302C13284 /* Habit.swift in Sources */,
 				ACB3FF4F4613AD4A7E0D895C /* HabitLog.swift in Sources */,
 				A91F88B12F90E9DE00E9DE02 /* Philosophy.swift in Sources */,
+				19F730A52F855366005D2284 /* OnboardingView.swift in Sources */,
+				19F730AB2F85538A005D2284 /* SettingsView.swift in Sources */,
 				6B768CB048E1CAF96654989A /* HabitViewModel.swift in Sources */,
 				F00D50022F8048AA00E9AB02 /* HabitFormSheet.swift in Sources */,
 				40C551D4E23DF5510D8EDF58 /* HabitsView.swift in Sources */,
@@ -440,6 +474,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sift/Sift.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 3U5T65598X;
 				INFOPLIST_FILE = Sift/Info.plist;
@@ -583,6 +618,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sift/Sift.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 3U5T65598X;
 				INFOPLIST_FILE = Sift/Info.plist;

@@ -481,6 +481,12 @@ extension Notification.Name {
     static let siftEntryBodyUpdatedFromDayView = Notification.Name("siftEntryBodyUpdatedFromDayView")
     /// Posted when Home toggles an action; `userInfo`: `actionContent`, `completed`, `entryID` (optional `UUID`).
     static let siftActionCompletionChanged = Notification.Name("com.aporian.sift.actionCompletionChanged")
+    /// Posted by the compose menu to ask ThemesView to open its create sheet.
+    static let siftRequestShowCreateTheme = Notification.Name("siftRequestShowCreateTheme")
+    /// Posted by the compose menu to ask HabitsView to open its create sheet.
+    static let siftRequestShowCreateHabit = Notification.Name("siftRequestShowCreateHabit")
+    /// Posted by the compose menu to ask HomeView to create a new inline action.
+    static let siftRequestCreateAction = Notification.Name("siftRequestCreateAction")
 }
 
 // MARK: - Update DTOs
