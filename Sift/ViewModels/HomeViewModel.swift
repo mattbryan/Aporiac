@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// What the Today tab entry card shows before opening the editor.
 enum HomeEntryCardState: Equatable {
@@ -74,7 +75,9 @@ final class HomeViewModel {
                 return
             }
 
-            let fingerprint = entry.id.uuidString + "|" + combined
+            // Use content hash instead of full content to avoid re-summarizing on trivial formatting changes
+            let contentHash = SHA256.hash(data: Data(combined.utf8))
+            let fingerprint = entry.id.uuidString + "|" + contentHash.description
             if fingerprint == summaryCacheFingerprint, let cached = summaryCacheText {
                 entryCardState = .brief(cached)
                 return
