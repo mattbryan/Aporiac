@@ -11,7 +11,7 @@ struct HabitsView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Habits")
-                    .siftTextStyle(.h1Medium)
+                    .siftTextStyle(.h1Bold)
                     .foregroundStyle(Color.siftInk)
                 Spacer()
                 Button {

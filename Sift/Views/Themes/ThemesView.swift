@@ -11,7 +11,7 @@ struct ThemesView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Themes")
-                    .siftTextStyle(.h1Medium)
+                    .siftTextStyle(.h1Bold)
                     .foregroundStyle(Color.siftInk)
                 Spacer()
                 Button {
