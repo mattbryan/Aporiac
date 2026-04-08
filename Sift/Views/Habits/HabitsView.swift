@@ -9,6 +9,7 @@ struct HabitsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+<<<<<<< HEAD
             HStack {
                 Text("Habits")
                     .siftTextStyle(.h1Bold)
@@ -23,9 +24,11 @@ struct HabitsView: View {
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
+=======
+            PageTopBar(title: "Habits") {
+                showCreateSheet = true
+>>>>>>> claude/fervent-sinoussi
             }
-            .padding(.horizontal, 20)
-            .padding(.top, DS.Spacing.md)
 
             ScrollView {
                 LazyVStack(spacing: DS.Spacing.sm) {

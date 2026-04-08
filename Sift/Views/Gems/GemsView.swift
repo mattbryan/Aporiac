@@ -28,14 +28,16 @@ struct GemsView: View {
     @ViewBuilder
     private func gemsRootContent(viewModel: GemViewModel) -> some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Gems")
-                    .siftTextStyle(.h1Bold)
-                    .foregroundStyle(Color.siftInk)
-                Spacer(minLength: 0)
+            PageTopBar(title: "Gems") {
+                Task {
+                    do {
+                        _ = try await SupabaseService.shared.createQuickGem()
+                        try? await viewModel.load()
+                    } catch {
+                        print("[GemsView] Failed to create quick gem: \(error)")
+                    }
+                }
             }
-            .padding(.horizontal, DS.Spacing.screenEdge)
-            .padding(.top, DS.Spacing.md)
             .padding(.bottom, DS.Spacing.sm)
 
             HStack(spacing: DS.Spacing.sm) {
