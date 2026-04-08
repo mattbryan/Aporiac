@@ -31,8 +31,9 @@ struct GemsView: View {
             PageTopBar(title: "Gems") {
                 Task {
                     do {
-                        _ = try await SupabaseService.shared.createQuickGem()
+                        let gemID = try await SupabaseService.shared.createQuickGem()
                         try? await viewModel.load()
+                        gemNavigationPath.append(gemID)
                     } catch {
                         print("[GemsView] Failed to create quick gem: \(error)")
                     }

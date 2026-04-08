@@ -9,25 +9,8 @@ struct HabitsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-<<<<<<< HEAD
-            HStack {
-                Text("Habits")
-                    .siftTextStyle(.h1Bold)
-                    .foregroundStyle(Color.siftInk)
-                Spacer()
-                Button {
-                    showCreateSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(Color.siftInk)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-=======
             PageTopBar(title: "Habits") {
                 showCreateSheet = true
->>>>>>> claude/fervent-sinoussi
             }
 
             ScrollView {

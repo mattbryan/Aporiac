@@ -22,6 +22,7 @@
 		19F730BA2F85CFED005D2284 /* Onboarding_Focus.png in Resources */ = {isa = PBXBuildFile; fileRef = 19F730B72F85CFED005D2284 /* Onboarding_Focus.png */; };
 		19F730BB2F85CFED005D2284 /* Onboarding_Signal.png in Resources */ = {isa = PBXBuildFile; fileRef = 19F730B82F85CFED005D2284 /* Onboarding_Signal.png */; };
 		19F730BC2F85CFED005D2284 /* Onboarding_Writing.png in Resources */ = {isa = PBXBuildFile; fileRef = 19F730B92F85CFED005D2284 /* Onboarding_Writing.png */; };
+		19F730BE2F8712BA005D2284 /* PageTopBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F730BD2F8712BA005D2284 /* PageTopBar.swift */; };
 		1E3A4EAF34BAB0A01DFB2E69 /* ActionItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF5B38C82769CAC6E7176AB /* ActionItemViewModel.swift */; };
 		298E0E7FF27BAE2DC25B6674 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */; };
 		2FB3AF15B4D1133AE5EB398E /* EntryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 782C04E47936E0F9F289A31D /* EntryViewModel.swift */; };
@@ -98,6 +99,7 @@
 		19F730B72F85CFED005D2284 /* Onboarding_Focus.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Onboarding_Focus.png; sourceTree = "<group>"; };
 		19F730B82F85CFED005D2284 /* Onboarding_Signal.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Onboarding_Signal.png; sourceTree = "<group>"; };
 		19F730B92F85CFED005D2284 /* Onboarding_Writing.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Onboarding_Writing.png; sourceTree = "<group>"; };
+		19F730BD2F8712BA005D2284 /* PageTopBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTopBar.swift; sourceTree = "<group>"; };
 		1D0F7C119ACC397D49AACBF9 /* Gem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gem.swift; sourceTree = "<group>"; };
 		24DF29B9AF3D71054B551C6D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		2A2A5329070E51736D950FFB /* EntitlementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementService.swift; sourceTree = "<group>"; };
@@ -262,6 +264,7 @@
 		832471A25C3BA8E0A669138D /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				19F730BD2F8712BA005D2284 /* PageTopBar.swift */,
 				19F730AC2F8562C0005D2284 /* QuickActionSheet.swift */,
 				19BCB7702F82C5230046F0C3 /* MarkdownTextEditor.swift */,
 				24DF29B9AF3D71054B551C6D /* DesignSystem.swift */,
@@ -444,6 +447,7 @@
 				7061D98284CF67FC2CA4FD21 /* AnthropicConfig.swift in Sources */,
 				D2B3C4D5E6F708192A3B4C5D /* CalendarDayHomeView.swift in Sources */,
 				369D802F7D963E05B7A5C168 /* DayPickerView.swift in Sources */,
+				19F730BE2F8712BA005D2284 /* PageTopBar.swift in Sources */,
 				963651A64F9AE1D7E388E534 /* DesignSystem.swift in Sources */,
 				F4D5E6F709293A4B5C6D7E30 /* HomeListInteractions.swift in Sources */,
 				522BAFFB2A776F21E4D8123C /* Entitlement.swift in Sources */,
