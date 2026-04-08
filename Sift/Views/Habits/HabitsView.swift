@@ -9,23 +9,9 @@ struct HabitsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Habits")
-                    .siftTextStyle(.h1Medium)
-                    .foregroundStyle(Color.siftInk)
-                Spacer()
-                Button {
-                    showCreateSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(Color.siftInk)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
+            PageTopBar(title: "Habits") {
+                showCreateSheet = true
             }
-            .padding(.horizontal, 20)
-            .padding(.top, DS.Spacing.md)
 
             ScrollView {
                 LazyVStack(spacing: DS.Spacing.sm) {
