@@ -3,68 +3,167 @@ import AuthenticationServices
 import CryptoKit
 
 struct OnboardingView: View {
-    @Environment(\.colorScheme) private var colorScheme
+    @State private var currentPage = 0
 
+    var body: some View {
+        ZStack {
+            // Dark background
+            Color(red: 0.11, green: 0.11, blue: 0.11).ignoresSafeArea()
+
+            TabView(selection: $currentPage) {
+                // Page 1: Writing
+                FeaturePage(
+                    headline: "Writing is thinking,\nit's meant to be messy",
+                    subtitle: "Sift is a place to think out loud. Write freely. Highlight the gems and let everything else fade.",
+                    illustrationName: "Onboarding_Writing"
+                )
+                .tag(0)
+
+                // Page 2: Signal
+                FeaturePage(
+                    headline: "Embrace noise,\nboost signal",
+                    subtitle: "Entries live for seven days. Actions live until you complete them. Gems live forever.",
+                    illustrationName: "Onboarding_Signal"
+                )
+                .tag(1)
+
+                // Page 3: Focus
+                FeaturePage(
+                    headline: "Maintain focus\non what matters",
+                    subtitle: "Choose themes & habits to guide your thoughts and progress over time.",
+                    illustrationName: "Onboarding_Focus"
+                )
+                .tag(2)
+
+                // Page 4: Auth
+                AuthPage()
+                    .tag(3)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .automatic))
+            .ignoresSafeArea()
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Feature Page
+
+private struct FeaturePage: View {
+    let headline: String
+    let subtitle: String
+    let illustrationName: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Top spacing
+            Spacer()
+                .frame(height: DS.Spacing.pageTop)
+
+            // Headline — H1 Bold italic
+            Text(headline)
+                .font(.siftH1Bold)
+                .tracking(SiftTracking.h1Bold)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .lineSpacing(1)
+                .padding(.horizontal, DS.Spacing.screenEdge)
+
+            // Subtitle — P2 Regular
+            Text(subtitle)
+                .font(.siftP2Regular)
+                .tracking(SiftTracking.p2Regular)
+                .foregroundColor(Color.siftInkFaded)
+                .multilineTextAlignment(.center)
+                .lineSpacing(1.5)
+                .padding(.horizontal, DS.Spacing.screenEdge)
+                .padding(.top, DS.Spacing.md)
+
+            // Flexible space
+            Spacer()
+
+            // Illustration — proportional to available space
+            if let image = UIImage(named: illustrationName) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, DS.Spacing.xl)
+            } else {
+                // Placeholder
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(Color(white: 0.2), lineWidth: 1)
+                    .padding(.horizontal, DS.Spacing.xl)
+            }
+
+            // Space before page dots
+            Spacer()
+                .frame(height: DS.Spacing.lg)
+        }
+    }
+}
+
+// MARK: - Auth Page
+
+private struct AuthPage: View {
     @State private var currentNonce: String?
     @State private var authError: String?
     @State private var isLoading = false
 
     var body: some View {
-        ZStack {
-            Color.siftSurface.ignoresSafeArea()
+        VStack(spacing: 0) {
+            // Top flexible space
+            Spacer()
 
-            VStack(spacing: 0) {
-                Spacer()
+            // Logo — Newsreader Italic 188px
+            Text("sift")
+                .font(.custom("Newsreader", size: 188).italic())
+                .foregroundColor(Color.siftAccent)
 
-                // Wordmark + tagline
-                VStack(spacing: DS.Spacing.sm) {
-                    Text("Sift")
-                        .font(.system(size: 48, weight: .medium, design: .default))
-                        .foregroundStyle(Color.siftInk)
+            // Subtitle — Newsreader Medium 20px with 75px line height
+            Text("by APORIAC")
+                .font(.custom("Newsreader", size: 20).weight(.medium))
+                .foregroundColor(Color.siftInkFaded)
+                .lineSpacing(55)  // 75 - 20 = 55 additional spacing
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 366)
 
-                    Text("Say everything. Keep what matters.")
-                        .font(.siftCallout)
-                        .foregroundStyle(Color.siftSubtle)
-                        .multilineTextAlignment(.center)
-                }
+            // Large middle space
+            Spacer()
 
-                Spacer()
-
-                // Sign in CTA
-                VStack(spacing: DS.Spacing.md) {
-                    if let error = authError {
-                        Text(error)
-                            .font(.siftCaption)
-                            .foregroundStyle(Color.siftSubtle)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, DS.Spacing.xl)
-                    }
-
-                    if isLoading {
-                        ProgressView()
-                            .tint(Color.siftAccent)
-                            .frame(height: DS.ButtonHeight.large)
-                    } else {
-                        SignInWithAppleButton(.continue) { request in
-                            let nonce = generateNonce()
-                            currentNonce = nonce
-                            request.requestedScopes = [.email]
-                            request.nonce = sha256(nonce)
-                        } onCompletion: { result in
-                            handleAppleSignIn(result)
-                        }
-                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                        .frame(height: DS.ButtonHeight.large)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                    }
-                }
-                .padding(.horizontal, DS.Spacing.screenEdge)
-                .padding(.bottom, DS.Spacing.xl)
+            // Error message
+            if let error = authError {
+                Text(error)
+                    .font(.siftCaption)
+                    .foregroundStyle(Color.siftSubtle)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DS.Spacing.screenEdge)
+                    .padding(.bottom, DS.Spacing.md)
             }
-        }
-    }
 
-    // MARK: - Sign In Handler
+            // Sign in button
+            if isLoading {
+                ProgressView()
+                    .tint(Color.siftAccent)
+                    .frame(height: DS.ButtonHeight.large)
+            } else {
+                SignInWithAppleButton(.continue) { request in
+                    let nonce = generateNonce()
+                    currentNonce = nonce
+                    request.requestedScopes = [.email]
+                    request.nonce = sha256(nonce)
+                } onCompletion: { result in
+                    handleAppleSignIn(result)
+                }
+                .signInWithAppleButtonStyle(.white)
+                .frame(height: DS.ButtonHeight.large)
+                .cornerRadius(DS.Radius.sm)
+            }
+
+            Spacer()
+                .frame(height: DS.Spacing.lg)
+        }
+        .padding(.horizontal, DS.Spacing.screenEdge)
+    }
 
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
         switch result {
@@ -91,7 +190,6 @@ struct OnboardingView: View {
             }
 
         case .failure(let error):
-            // ASAuthorizationError.canceled means the user dismissed — no message needed
             if (error as? ASAuthorizationError)?.code != .canceled {
                 authError = "Sign in failed. Please try again."
                 print("[Onboarding] Apple sign-in error: \(error)")
@@ -99,9 +197,6 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Nonce Helpers
-
-    /// Generates a cryptographically random 32-byte hex string.
     private func generateNonce() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
@@ -109,7 +204,6 @@ struct OnboardingView: View {
         return bytes.map { String(format: "%02x", $0) }.joined()
     }
 
-    /// SHA-256 hex digest of the given string.
     private func sha256(_ input: String) -> String {
         let digest = SHA256.hash(data: Data(input.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
