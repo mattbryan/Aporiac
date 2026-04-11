@@ -89,37 +89,16 @@ struct CalendarDayHomeView: View {
 
     var body: some View {
         NavigationStack(path: $gemNavigationPath) {
-            VStack(alignment: .leading, spacing: 0) {
-                Group {
-                    if isToday {
-                        HStack {
-                            Button {
-                                dismissTypingFocus()
-                                dismiss()
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(Color.siftSubtle)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.leading, DS.Spacing.md)
-                        .padding(.top, DS.Spacing.sm)
-                    } else {
-                        pastDayTopToolbar
-                            .padding(.top, DS.Spacing.sm)
-                    }
+            scrollContent
+                .overlay(alignment: .top) {
+                    topBar
                 }
-
-                scrollContent
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color.siftSurface.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { gemID in
                 GemDetailView(gemID: gemID, navigationPath: $gemNavigationPath)
             }
         }
-        .background(Color.siftSurface.ignoresSafeArea())
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -185,6 +164,31 @@ struct CalendarDayHomeView: View {
                     dayEntryIDs = []
                     await loadDayGems(showLoading: false)
                 }
+            }
+        }
+    }
+
+    private var topBar: some View {
+        Group {
+            if isToday {
+                HStack {
+                    Button {
+                        dismissTypingFocus()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.siftSubtle)
+                            .frame(width: 40, height: 40)
+                    }
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, DS.Spacing.md)
+                .padding(.top, DS.Spacing.sm)
+            } else {
+                pastDayTopToolbar
+                    .padding(.top, DS.Spacing.sm)
             }
         }
     }
@@ -264,8 +268,9 @@ struct CalendarDayHomeView: View {
     private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                Color.clear.frame(height: 60)
+
                 dateHeading
-                    .padding(.top, DS.Spacing.sm)
 
                 if !isEntryExpired {
                     entryCard

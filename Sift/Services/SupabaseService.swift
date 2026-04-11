@@ -70,12 +70,12 @@ final class SupabaseService {
             .execute()
         let schemas: [String] = ["gems", "entries", "themes", "habits", "habit_logs", "action_items", "action_themes"]
         for table in schemas {
-            try? await client.from(table)
+            _ = try? await client.from(table)
                 .delete()
                 .eq("user_id", value: userID.uuidString)
                 .execute()
         }
-        try? await client.schema("public").from("user_settings")
+        _ = try? await client.schema("public").from("user_settings")
             .delete()
             .eq("user_id", value: userID.uuidString)
             .execute()
@@ -121,11 +121,11 @@ final class SupabaseService {
 
         let separator = entry.content.isEmpty ? "" : "\n"
         let newContent = entry.content + separator + "> "
-        try? await client.from("entries")
+        _ = try? await client.from("entries")
             .update(EntryContentFieldOnlyUpdate(content: newContent))
             .eq("id", value: entry.id.uuidString)
             .execute()
-        try? await client.from("entries")
+        _ = try? await client.from("entries")
             .update(SupabaseEntryHasGemUpdate(hasGem: true))
             .eq("id", value: entry.id.uuidString)
             .execute()
@@ -156,7 +156,7 @@ final class SupabaseService {
         if let entry = todayEntry {
             let separator = entry.content.isEmpty ? "" : "\n"
             let newContent = entry.content + separator + "- [ ] \(content)"
-            try? await client.from("entries")
+            _ = try? await client.from("entries")
                 .update(EntryContentFieldOnlyUpdate(content: newContent))
                 .eq("id", value: entry.id.uuidString)
                 .execute()
@@ -227,7 +227,7 @@ final class SupabaseService {
     /// entries with `has_gem = true` are never touched, preserving gem references.
     func purgeExpiredEntries() async {
         guard let userID = currentUser?.id else { return }
-        var formatter = ISO8601DateFormatter()
+        let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let now = formatter.string(from: Date())
         do {
@@ -341,7 +341,7 @@ final class SupabaseService {
     func hasActiveThemeOlderThan(_ interval: TimeInterval) async -> Bool {
         guard let userID = currentUser?.id else { return false }
         let cutoff = Date().addingTimeInterval(-interval)
-        var formatter = ISO8601DateFormatter()
+        let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let rows: [SupabaseIDOnlyRow] = (try? await client
             .from("themes")
@@ -359,7 +359,7 @@ final class SupabaseService {
     func hasActiveHabitOlderThan(_ interval: TimeInterval) async -> Bool {
         guard let userID = currentUser?.id else { return false }
         let cutoff = Date().addingTimeInterval(-interval)
-        var formatter = ISO8601DateFormatter()
+        let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let rows: [SupabaseIDOnlyRow] = (try? await client
             .from("habits")
@@ -453,7 +453,7 @@ final class SupabaseService {
             }
 
             if patchedContent != entry.content {
-                try? await client
+                _ = try? await client
                     .from("entries")
                     .update(EntryContentFieldOnlyUpdate(content: patchedContent))
                     .eq("id", value: entry.id.uuidString)

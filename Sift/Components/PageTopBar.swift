@@ -9,7 +9,7 @@ struct PageTopBar: View {
     var body: some View {
         HStack {
             Text(title)
-                .siftTextStyle(.h1Medium)
+                .siftTextStyle(.h1Bold)
                 .foregroundStyle(Color.siftInk)
             Spacer()
             Button {
