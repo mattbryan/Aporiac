@@ -144,6 +144,39 @@ final class ThemeViewModel {
             throw error
         }
     }
+
+    /// Marks the theme active remotely and moves it from `archivedThemes` back to `activeThemes`, reverting on failure.
+    func unarchive(_ theme: Theme) async throws {
+        guard let userID = service.currentUser?.id else {
+            throw ThemeViewModelError.notAuthenticated
+        }
+        guard let index = archivedThemes.firstIndex(where: { $0.id == theme.id }) else {
+            throw ThemeViewModelError.themeNotInArchivedList
+        }
+
+        var activeTheme = archivedThemes[index]
+        activeTheme.active = true
+        activeTheme.archivedAt = nil
+
+        let activeSnapshot = activeThemes
+        let archivedSnapshot = archivedThemes
+
+        archivedThemes.remove(at: index)
+        activeThemes.insert(activeTheme, at: 0)
+
+        do {
+            try await service.client
+                .from("themes")
+                .update(ArchiveUpdate(active: true, archivedAt: nil))
+                .eq("id", value: theme.id.uuidString)
+                .eq("user_id", value: userID.uuidString)
+                .execute()
+        } catch {
+            activeThemes = activeSnapshot
+            archivedThemes = archivedSnapshot
+            throw error
+        }
+    }
 }
 
 private struct ThemeInsert: Encodable, Sendable {
@@ -178,7 +211,7 @@ private struct ThemeContentUpdate: Encodable, Sendable {
 
 private struct ArchiveUpdate: Encodable, Sendable {
     let active: Bool
-    let archivedAt: Date
+    let archivedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case active
@@ -189,4 +222,5 @@ private struct ArchiveUpdate: Encodable, Sendable {
 private enum ThemeViewModelError: Error {
     case notAuthenticated
     case themeNotInActiveList
+    case themeNotInArchivedList
 }

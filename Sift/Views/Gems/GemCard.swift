@@ -406,7 +406,7 @@ struct GemDetailView: View {
                 id: UUID(),
                 userID: UUID(),
                 entryID: UUID(),
-                content: "A fragment worth keeping from the entry.",
+                content: "A gem worth keeping from the entry.",
                 rangeStart: 0,
                 rangeEnd: 10,
                 createdAt: .now

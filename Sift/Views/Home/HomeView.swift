@@ -371,6 +371,8 @@ struct HomeView: View {
                             openSwipeRowKey = nil
                             actionViewModel.delete(item)
                         },
+                        dragGestureMinimumDistance: 36,
+                        swipeUsesHighPriorityGesture: false,
                         leading: {
                             Button {
                                 openSwipeRowKey = nil
@@ -427,6 +429,8 @@ struct HomeView: View {
                                 openSwipeRowKey = nil
                                 actionViewModel.delete(item)
                             },
+                            dragGestureMinimumDistance: 36,
+                            swipeUsesHighPriorityGesture: false,
                             leading: {
                                 Button {
                                     openSwipeRowKey = nil

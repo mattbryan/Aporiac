@@ -60,6 +60,9 @@ struct HabitsView: View {
                     if showArchived {
                         ForEach(viewModel.archivedHabits) { habit in
                             HabitRow(habit: habit, log: nil, archived: true)
+                                .onTapGesture {
+                                    selectedHabit = habit
+                                }
                         }
                     }
                 }

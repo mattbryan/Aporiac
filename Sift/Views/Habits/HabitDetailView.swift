@@ -239,13 +239,17 @@ struct HabitDetailView: View {
         Button {
             isArchiving = true
             Task {
-                try? await viewModel.archive(habit)
+                if habit.active {
+                    try? await viewModel.archive(habit)
+                } else {
+                    try? await viewModel.unarchive(habit)
+                }
                 dismiss()
             }
         } label: {
-            Text("Archive habit")
+            Text(habit.active ? "Archive habit" : "Unarchive habit")
                 .font(.siftCallout)
-                .foregroundStyle(Color.siftSubtle)
+                .foregroundStyle(habit.active ? Color.siftDelete : Color.siftAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: DS.ButtonHeight.medium)
         }
@@ -325,4 +329,3 @@ struct HabitDetailView: View {
         logs = (try? await viewModel.fetchLogs(habitID: habit.id, month: month, year: year)) ?? []
     }
 }
-

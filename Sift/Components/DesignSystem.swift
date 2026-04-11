@@ -26,6 +26,9 @@ extension Color {
         dark: UIColor(red: 161 / 255, green: 161 / 255, blue: 161 / 255, alpha: 1)
     ))
 
+    /// Secondary ink alias for views that reference the design token by name.
+    static let siftSecondary = siftInkFaded
+
     /// Surface flat — app chrome background (`#f5f5f5` / `#171717`).
     static let siftSurface = Color(adaptiveUIColor(
         light: UIColor(red: 245 / 255, green: 245 / 255, blue: 245 / 255, alpha: 1),

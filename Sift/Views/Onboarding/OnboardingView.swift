@@ -72,7 +72,7 @@ private struct FeaturePage: View {
             Text(subtitle)
                 .font(.siftP2Regular)
                 .tracking(SiftTracking.p2Regular)
-                .foregroundColor(Color.siftInkFaded)
+                .foregroundColor(Color.siftSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(1.5)
                 .padding(.horizontal, DS.Spacing.screenEdge)
@@ -122,7 +122,7 @@ private struct AuthPage: View {
             // Subtitle — Newsreader Medium 20px with 75px line height
             Text("by APORIAC")
                 .font(.custom("Newsreader", size: 20).weight(.medium))
-                .foregroundColor(Color.siftInkFaded)
+                .foregroundColor(Color.siftSecondary)
                 .lineSpacing(55)  // 75 - 20 = 55 additional spacing
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 366)

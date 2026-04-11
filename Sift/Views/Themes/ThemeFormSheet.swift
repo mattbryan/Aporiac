@@ -24,6 +24,16 @@ struct ThemeFormSheet: View {
         }
     }
 
+    private var archiveActionTitle: String {
+        guard case .edit(let theme) = mode else { return "Archive theme" }
+        return theme.active ? "Archive theme" : "Unarchive theme"
+    }
+
+    private var archiveActionColor: Color {
+        guard case .edit(let theme) = mode else { return Color.siftDelete }
+        return theme.active ? Color.siftDelete : Color.siftAccent
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(sheetTitle)
@@ -88,9 +98,9 @@ struct ThemeFormSheet: View {
                     onArchive()
                     dismiss()
                 } label: {
-                    Text("Archive theme")
+                    Text(archiveActionTitle)
                         .font(.siftCallout)
-                        .foregroundStyle(Color.siftSubtle)
+                        .foregroundStyle(archiveActionColor)
                         .frame(maxWidth: .infinity)
                         .frame(height: DS.ButtonHeight.medium)
                 }

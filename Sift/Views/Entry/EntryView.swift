@@ -93,11 +93,6 @@ struct EntryView: View {
                             }
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            Text("New gems you save are linked to the themes you select here.")
-                                .font(.siftCaption)
-                                .foregroundStyle(Color.siftSubtle)
-                                .padding(.top, DS.Spacing.xs)
-
                             Rectangle()
                                 .fill(Color.siftDivider)
                                 .frame(maxWidth: .infinity)

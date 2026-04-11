@@ -100,7 +100,7 @@ private enum MarkdownBlockInlineMetrics {
     static let actionCheckboxLeadingInset = DS.Spacing.md
     static let actionCheckboxSize = DS.IconSize.m
     /// Between checkbox and action text.
-    static let actionGapAfterCheckbox: CGFloat = 0
+    static let actionGapAfterCheckbox: CGFloat = 8
     /// Left padding + circle + gap before visible text.
     static var actionHeadIndent: CGFloat { actionCheckboxLeadingInset + actionCheckboxSize + actionGapAfterCheckbox }
 }
@@ -175,9 +175,9 @@ final class MarkdownLayoutManager: NSLayoutManager {
             case .gem:
                 drawGemCard(in: cardRect)
             case .actionIncomplete:
-                drawActionCard(in: cardRect, glyphRange: glyphRange, completed: false, viewOrigin: origin)
+                drawActionCard(in: cardRect, completed: false, glyphRange: glyphRange, viewOrigin: origin)
             case .actionComplete:
-                drawActionCard(in: cardRect, glyphRange: glyphRange, completed: true, viewOrigin: origin)
+                drawActionCard(in: cardRect, completed: true, glyphRange: glyphRange, viewOrigin: origin)
             }
         }
     }
@@ -237,31 +237,18 @@ final class MarkdownLayoutManager: NSLayoutManager {
         ).fill()
     }
 
-    private func firstLineFragmentRect(
-        for glyphRange: NSRange,
-        viewOrigin: CGPoint
-    ) -> CGRect? {
-        var firstFragmentRect: CGRect?
-        enumerateLineFragments(forGlyphRange: glyphRange) { rect, _, _, _, stop in
-            firstFragmentRect = rect.offsetBy(dx: viewOrigin.x, dy: viewOrigin.y)
-            stop.pointee = true
-        }
-        return firstFragmentRect
-    }
-
     private func drawActionCard(
         in rect: CGRect,
-        glyphRange: NSRange,
         completed: Bool,
-        viewOrigin: CGPoint
+        glyphRange _: NSRange,
+        viewOrigin _: CGPoint
     ) {
         UIColor(Color.siftCard).setFill()
         UIBezierPath(roundedRect: rect, cornerRadius: DS.Radius.xs).fill()
 
         let checkboxSize = MarkdownBlockInlineMetrics.actionCheckboxSize
         let checkboxX = rect.minX + MarkdownBlockInlineMetrics.actionCheckboxLeadingInset
-        let firstLineRect = firstLineFragmentRect(for: glyphRange, viewOrigin: viewOrigin) ?? rect
-        let checkboxY = firstLineRect.midY - (checkboxSize / 2)
+        let checkboxY = rect.midY - (checkboxSize / 2)
         let checkboxRect = CGRect(x: checkboxX, y: checkboxY, width: checkboxSize, height: checkboxSize)
 
         if completed {

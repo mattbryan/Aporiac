@@ -60,6 +60,9 @@ struct ThemesView: View {
                     if showArchived {
                         ForEach(viewModel.archivedThemes) { theme in
                             ThemeRow(theme: theme, archived: true)
+                                .onTapGesture {
+                                    editingTheme = theme
+                                }
                         }
                     }
                 }
@@ -80,7 +83,13 @@ struct ThemesView: View {
             ThemeFormSheet(mode: .edit(theme)) { title, description in
                 Task { try? await viewModel.update(theme: theme, title: title, description: description) }
             } onArchive: {
-                Task { try? await viewModel.archive(theme) }
+                Task {
+                    if theme.active {
+                        try? await viewModel.archive(theme)
+                    } else {
+                        try? await viewModel.unarchive(theme)
+                    }
+                }
             }
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)

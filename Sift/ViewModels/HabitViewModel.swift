@@ -189,6 +189,41 @@ final class HabitViewModel {
         }
     }
 
+    /// Marks the habit active remotely and moves it from `archivedHabits` back to `activeHabits`, reverting on failure.
+    func unarchive(_ habit: Habit) async throws {
+        guard let userID = service.currentUser?.id else {
+            throw HabitViewModelError.notAuthenticated
+        }
+        guard let index = archivedHabits.firstIndex(where: { $0.id == habit.id }) else {
+            throw HabitViewModelError.habitNotInArchivedList
+        }
+
+        var activeHabit = archivedHabits[index]
+        activeHabit.active = true
+        activeHabit.archivedAt = nil
+
+        let activeSnapshot = activeHabits
+        let archivedSnapshot = archivedHabits
+        let logsSnapshot = todayLogs
+
+        archivedHabits.remove(at: index)
+        activeHabits.insert(activeHabit, at: 0)
+
+        do {
+            try await service.client
+                .from("habits")
+                .update(ArchiveUpdate(active: true, archivedAt: nil))
+                .eq("id", value: habit.id.uuidString)
+                .eq("user_id", value: userID.uuidString)
+                .execute()
+        } catch {
+            activeHabits = activeSnapshot
+            archivedHabits = archivedSnapshot
+            todayLogs = logsSnapshot
+            throw error
+        }
+    }
+
     func setLog(habitID: UUID, credit: Float) async throws {
         let key = habitID
         let predecessor = setLogChainTasks[key]
@@ -343,7 +378,7 @@ private struct HabitContentUpdate: Encodable, Sendable {
 
 private struct ArchiveUpdate: Encodable, Sendable {
     let active: Bool
-    let archivedAt: Date
+    let archivedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case active
@@ -366,5 +401,6 @@ private struct HabitLogInsert: Encodable, Sendable {
 private enum HabitViewModelError: Error {
     case notAuthenticated
     case habitNotInActiveList
+    case habitNotInArchivedList
     case invalidMonth
 }

@@ -499,7 +499,7 @@ struct HomeDayGemsSection: View {
                         }
                     }
                 } else if gems.isEmpty {
-                    Text("No fragments saved from this day.")
+                    Text("No gems saved from this day.")
                         .font(.siftCallout)
                         .foregroundStyle(Color.siftSubtle)
                         .frame(maxWidth: .infinity, alignment: .leading)
