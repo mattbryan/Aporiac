@@ -51,6 +51,16 @@ struct HomeView: View {
         focusedActionItemID = nil
     }
 
+    private func performAfterClosingSwipe(action: @escaping @MainActor () -> Void) {
+        openSwipeRowKey = nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(160))
+            withAnimation(DS.animationFast) {
+                action()
+            }
+        }
+    }
+
     private func fetchHomeDayEntryIDs() async -> [UUID] {
         do {
             return try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
@@ -384,8 +394,7 @@ struct HomeView: View {
                         swipeUsesHighPriorityGesture: false,
                         leading: {
                             Button {
-                                openSwipeRowKey = nil
-                                withAnimation(DS.animationFast) {
+                                performAfterClosingSwipe {
                                     actionViewModel.complete(item)
                                 }
                             } label: {
@@ -400,8 +409,9 @@ struct HomeView: View {
                         },
                         trailing: {
                             Button {
-                                openSwipeRowKey = nil
-                                actionViewModel.delete(item)
+                                performAfterClosingSwipe {
+                                    actionViewModel.delete(item)
+                                }
                             } label: {
                                 Image(systemName: "trash")
                                     .font(.system(size: 18, weight: .medium))
@@ -448,8 +458,7 @@ struct HomeView: View {
                             swipeUsesHighPriorityGesture: false,
                             leading: {
                                 Button {
-                                    openSwipeRowKey = nil
-                                    withAnimation(DS.animationFast) {
+                                    performAfterClosingSwipe {
                                         actionViewModel.uncomplete(item)
                                     }
                                 } label: {
@@ -464,8 +473,9 @@ struct HomeView: View {
                             },
                             trailing: {
                                 Button {
-                                    openSwipeRowKey = nil
-                                    actionViewModel.delete(item)
+                                    performAfterClosingSwipe {
+                                        actionViewModel.delete(item)
+                                    }
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.system(size: 18, weight: .medium))

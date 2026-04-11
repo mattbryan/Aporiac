@@ -87,6 +87,8 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
     @State private var isDragging: Bool = false
     /// `nil` until the gesture commits to horizontal vs vertical.
     @State private var horizontalLock: Bool?
+    /// Hide swipe actions immediately when the row starts closing so they do not flash through animating content.
+    @State private var actionBackdropVisible: Bool = false
 
     /// When a row is open, the foreground must still receive drags to swipe it closed.
     private var contentAllowsHitTesting: Bool {
@@ -107,6 +109,7 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
                     .frame(width: maxTrailing)
                     .frame(maxHeight: .infinity)
             }
+            .opacity(actionBackdropVisible ? 1 : 0)
 
             swipeForeground(maxLeading: maxLeading, maxTrailing: maxTrailing)
         }
@@ -114,6 +117,7 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
         .clipped()
         .onChange(of: openRowKey) { _, newValue in
             guard newValue != rowKey, offset != 0 else { return }
+            actionBackdropVisible = false
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                 offset = 0
             }
@@ -161,6 +165,7 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
                 guard horizontalLock == true else { return }
 
                 if !isDragging {
+                    actionBackdropVisible = true
                     // Close whichever *other* row is open; do not clear when this row is the open one
                     // or we'd reset our own offset mid-drag.
                     if let open = openRowKey, open != rowKey {
@@ -212,6 +217,7 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
 
         if allowsFullSwipeLeading, maxLeading > 0, rawTranslation > performLeading {
             clearOpenRowIfNeeded()
+            actionBackdropVisible = false
             onFullSwipeLeading?()
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { offset = 0 }
             return
@@ -219,6 +225,7 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
 
         if allowsFullSwipeTrailing, maxTrailing > 0, rawTranslation < -performTrailing {
             clearOpenRowIfNeeded()
+            actionBackdropVisible = false
             onFullSwipeTrailing?()
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { offset = 0 }
             return
@@ -240,17 +247,21 @@ struct SwipeRevealRow<Leading: View, Trailing: View, Content: View>: View {
 
         if snapLeading, !snapTrailing {
             openRowKey = rowKey
+            actionBackdropVisible = true
             withAnimation(DS.animationSlow) { offset = maxLeading }
         } else if snapTrailing, !snapLeading {
             openRowKey = rowKey
+            actionBackdropVisible = true
             withAnimation(DS.animationSlow) { offset = -maxTrailing }
         } else if snapLeading, snapTrailing {
             openRowKey = rowKey
+            actionBackdropVisible = true
             withAnimation(DS.animationSlow) {
                 offset = predicted > 0 ? maxLeading : -maxTrailing
             }
         } else {
             clearOpenRowIfNeeded()
+            actionBackdropVisible = false
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { offset = 0 }
         }
     }

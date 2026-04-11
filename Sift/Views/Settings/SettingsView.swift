@@ -40,35 +40,45 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Text("Each day, one of the schools of thought below shapes your entry prompt. Select the ones that resonate — the more you choose, the more variety you'll encounter.")
-                    .font(.siftCallout)
-                    .foregroundStyle(Color.siftSubtle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    Text("Each day, one of the schools of thought below shapes your entry prompt. Select the ones that resonate — the more you choose, the more variety you'll encounter.")
+                        .font(.siftCallout)
+                        .foregroundStyle(Color.siftSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                ForEach(Philosophy.allCases) { philosophy in
-                    Button {
-                        togglePhilosophy(philosophy)
-                    } label: {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: DS.Spacing.xs / 2) {
-                                Text(philosophy.title)
-                                    .font(.siftBody)
-                                    .foregroundStyle(Color.siftInk)
-                                Text(philosophy.description)
-                                    .font(.siftCallout)
-                                    .foregroundStyle(Color.siftSubtle)
-                                    .multilineTextAlignment(.leading)
+                    ForEach(Philosophy.allCases) { philosophy in
+                        Button {
+                            togglePhilosophy(philosophy)
+                        } label: {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: DS.Spacing.xs / 2) {
+                                    Text(philosophy.title)
+                                        .font(.siftBody)
+                                        .foregroundStyle(Color.siftInk)
+                                    Text(philosophy.description)
+                                        .font(.siftCallout)
+                                        .foregroundStyle(Color.siftSecondary)
+                                        .multilineTextAlignment(.leading)
+                                }
+                                Spacer(minLength: DS.Spacing.sm)
+                                if selectedPhilosophies.contains(philosophy) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.siftAccent)
+                                }
                             }
-                            Spacer(minLength: DS.Spacing.sm)
-                            if selectedPhilosophies.contains(philosophy) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.siftAccent)
-                            }
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(DS.Spacing.md)
+                .background(Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                        .stroke(Color.siftDivider, lineWidth: 1)
+                )
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                .listRowBackground(Color.clear)
             } header: {
                 Text("Philosophies")
             }
