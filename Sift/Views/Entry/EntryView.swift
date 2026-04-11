@@ -25,8 +25,8 @@ struct EntryView: View {
     /// Whether the ENTRY section is unlocked. False = show "Start Entry" button. True = show editor.
     @State private var entryStarted: Bool = false
 
-    @State private var hasSelection = false
-    @State private var contentSelectionRange = NSRange(location: 0, length: 0)
+    @FocusState private var gratitudeEditorFocused: Bool
+
     private let contentTransformTrigger = MarkdownTransformTrigger()
 
     private var entryBodyOpacity: Double {
@@ -62,6 +62,7 @@ struct EntryView: View {
                             listMode: .bullet,
                             onSelectionChanged: { _, _ in }
                         )
+                        .focused($gratitudeEditorFocused)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         Rectangle()
@@ -115,16 +116,14 @@ struct EntryView: View {
                                     textColor: .siftInk,
                                     bodyOpacity: entryBodyOpacity,
                                     trigger: contentTransformTrigger,
-                                    onSelectionChanged: { selected, range in
-                                        contentSelectionRange = range
-                                        hasSelection = selected
-                                    }
+                                    onSelectionChanged: nil
                                 )
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         } else {
                             // Start Entry button
                             Button {
+                                gratitudeEditorFocused = false
                                 Task {
                                     await viewModel.prepareWritingPhase()
                                     withAnimation(DS.animationSlow) {
@@ -154,9 +153,6 @@ struct EntryView: View {
             .scrollDismissesKeyboard(.interactively)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                highlightToolbar
-            }
             .background(Color.siftSurface.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -238,69 +234,6 @@ struct EntryView: View {
             SiftSkeletonLine(height: 44, widthFraction: 1)
         }
         .padding(.top, DS.Spacing.xs)
-    }
-
-    // MARK: Toolbar
-
-    @ViewBuilder
-    private var highlightToolbar: some View {
-        VStack(spacing: 0) {
-            if hasSelection {
-                HStack(spacing: DS.Spacing.sm) {
-                    if isOnGemLine {
-                        toolbarButton(label: "Remove gem", color: Color.siftSubtle) {
-                            viewModel.removeGemAtSelection(contentSelectionRange)
-                        }
-                    }
-                    toolbarButton(label: "Gem", color: Color.siftGem) {
-                        contentTransformTrigger.fire(.gem)
-                    }
-                    toolbarButton(label: "Action", color: Color.siftAction) {
-                        contentTransformTrigger.fire(.actionIncomplete)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, DS.Spacing.md)
-                .padding(.vertical, DS.Spacing.sm)
-                .padding(.bottom, homeIndicatorInset)
-                .background(Color.siftSurface)
-                .overlay(alignment: .top) {
-                    Divider().background(Color.siftDivider)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(DS.animationSlow, value: hasSelection)
-    }
-
-    private var isOnGemLine: Bool {
-        let ns = viewModel.contentText as NSString
-        guard contentSelectionRange.location < ns.length else { return false }
-        var lineStart = 0
-        var contentsEnd = 0
-        ns.getLineStart(&lineStart, end: nil, contentsEnd: &contentsEnd,
-                        for: NSRange(location: contentSelectionRange.location, length: 0))
-        let line = ns.substring(with: NSRange(location: lineStart, length: contentsEnd - lineStart))
-        return line.hasPrefix("> ")
-    }
-
-    private func toolbarButton(label: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.siftBodyMedium)
-                .foregroundStyle(color)
-                .padding(.horizontal, DS.Spacing.sm)
-                .padding(.vertical, DS.Spacing.xs)
-                .background(color.opacity(0.1), in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// Bottom safe area (home indicator) for toolbar padding; not affected by keyboard.
-    private var homeIndicatorInset: CGFloat {
-        let scenes = UIApplication.shared.connectedScenes
-        let window = (scenes.first as? UIWindowScene)?.windows.first
-        return window?.safeAreaInsets.bottom ?? 0
     }
 
     private func reviewPromptText(for context: ReviewContext) -> String {

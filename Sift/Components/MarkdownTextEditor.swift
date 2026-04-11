@@ -175,9 +175,9 @@ final class MarkdownLayoutManager: NSLayoutManager {
             case .gem:
                 drawGemCard(in: cardRect)
             case .actionIncomplete:
-                drawActionCard(in: cardRect, completed: false)
+                drawActionCard(in: cardRect, glyphRange: glyphRange, completed: false, viewOrigin: origin)
             case .actionComplete:
-                drawActionCard(in: cardRect, completed: true)
+                drawActionCard(in: cardRect, glyphRange: glyphRange, completed: true, viewOrigin: origin)
             }
         }
     }
@@ -237,13 +237,31 @@ final class MarkdownLayoutManager: NSLayoutManager {
         ).fill()
     }
 
-    private func drawActionCard(in rect: CGRect, completed: Bool) {
+    private func firstLineFragmentRect(
+        for glyphRange: NSRange,
+        viewOrigin: CGPoint
+    ) -> CGRect? {
+        var firstFragmentRect: CGRect?
+        enumerateLineFragments(forGlyphRange: glyphRange) { rect, _, _, _, stop in
+            firstFragmentRect = rect.offsetBy(dx: viewOrigin.x, dy: viewOrigin.y)
+            stop.pointee = true
+        }
+        return firstFragmentRect
+    }
+
+    private func drawActionCard(
+        in rect: CGRect,
+        glyphRange: NSRange,
+        completed: Bool,
+        viewOrigin: CGPoint
+    ) {
         UIColor(Color.siftCard).setFill()
         UIBezierPath(roundedRect: rect, cornerRadius: DS.Radius.xs).fill()
 
         let checkboxSize = MarkdownBlockInlineMetrics.actionCheckboxSize
         let checkboxX = rect.minX + MarkdownBlockInlineMetrics.actionCheckboxLeadingInset
-        let checkboxY = rect.midY - checkboxSize / 2
+        let firstLineRect = firstLineFragmentRect(for: glyphRange, viewOrigin: viewOrigin) ?? rect
+        let checkboxY = firstLineRect.midY - (checkboxSize / 2)
         let checkboxRect = CGRect(x: checkboxX, y: checkboxY, width: checkboxSize, height: checkboxSize)
 
         if completed {
@@ -313,6 +331,12 @@ final class MarkdownGrowingTextView: UITextView {
             placeholderHeight = 0
         }
         return CGSize(width: UIView.noIntrinsicMetric, height: max(textHeight, placeholderHeight))
+    }
+
+    // Disable system context menu since we have a custom toolbar
+    @available(iOS 15.0, *)
+    override func buildMenu(with builder: UIMenuBuilder) {
+        // Don't call super to skip the system menu
     }
 }
 
@@ -728,9 +752,10 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
 
         private func applyGemAttributes(to storage: NSTextStorage, lineRange: NSRange, prefixLength: Int, textColor: UIColor) {
             let style = NSMutableParagraphStyle()
-            let head = MarkdownBlockInlineMetrics.gemHeadIndent
+            let head = MarkdownBlockInlineMetrics.gemHeadIndent + DS.Spacing.xs
             style.headIndent = head
             style.firstLineHeadIndent = head
+            style.tailIndent = -DS.Spacing.xs
             style.paragraphSpacingBefore = MarkdownBlockCardLayout.paragraphMargin
             style.paragraphSpacing = MarkdownBlockCardLayout.paragraphMargin
 
@@ -741,6 +766,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
 
             let prefixRange = NSRange(location: lineRange.location, length: min(prefixLength, lineRange.length))
             guard NSMaxRange(prefixRange) <= storage.length else { return }
+            // Collapse prefix to near-zero width so first-line text aligns with wrapped lines
+            storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
             storage.addAttribute(.foregroundColor, value: UIColor.clear, range: prefixRange)
         }
 
@@ -752,9 +779,10 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             textColor: UIColor
         ) {
             let style = NSMutableParagraphStyle()
-            let head = MarkdownBlockInlineMetrics.actionHeadIndent
+            let head = MarkdownBlockInlineMetrics.actionHeadIndent + DS.Spacing.xs
             style.headIndent = head
             style.firstLineHeadIndent = head
+            style.tailIndent = -DS.Spacing.xs
             style.paragraphSpacingBefore = MarkdownBlockCardLayout.paragraphMargin
             style.paragraphSpacing = MarkdownBlockCardLayout.paragraphMargin
 
@@ -772,6 +800,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
 
             let prefixRange = NSRange(location: lineRange.location, length: min(prefixLength, lineRange.length))
             guard NSMaxRange(prefixRange) <= storage.length else { return }
+            // Collapse prefix to near-zero width so first-line text aligns with wrapped lines
+            storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
             storage.addAttribute(.foregroundColor, value: UIColor.clear, range: prefixRange)
             if completed {
                 storage.addAttribute(.strikethroughStyle, value: 0, range: prefixRange)
@@ -879,7 +909,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                 textViewDidChange(textView)
                 return false
             } else if MarkdownActionPrefixes.isAnyTaskLine(lineContents) {
-                let insertion = MarkdownActionPrefixes.continuationIncomplete(afterLineContents: lineContents)
+                let insertion = "\n"
                 let mutable = NSMutableString(string: currentText)
                 mutable.replaceCharacters(in: range, with: insertion)
                 textView.text = mutable as String
