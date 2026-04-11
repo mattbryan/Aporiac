@@ -4,7 +4,7 @@ import SwiftUI
 struct HabitsView: View {
     @State private var viewModel = HabitViewModel()
     @State private var showCreateSheet = false
-    @State private var selectedHabit: Habit? = nil
+    @State private var selectedHabitID: UUID? = nil
     @State private var showArchived = false
 
     var body: some View {
@@ -34,7 +34,7 @@ struct HabitsView: View {
                         ForEach(viewModel.activeHabits) { habit in
                             HabitRow(habit: habit, log: viewModel.todayLogs[habit.id])
                                 .onTapGesture {
-                                    selectedHabit = habit
+                                    selectedHabitID = habit.id
                                 }
                         }
                     }
@@ -61,7 +61,7 @@ struct HabitsView: View {
                         ForEach(viewModel.archivedHabits) { habit in
                             HabitRow(habit: habit, log: nil, archived: true)
                                 .onTapGesture {
-                                    selectedHabit = habit
+                                    selectedHabitID = habit.id
                                 }
                         }
                     }
@@ -79,7 +79,7 @@ struct HabitsView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(item: $selectedHabit) { habit in
+        .sheet(item: selectedHabitBinding) { habit in
             HabitDetailView(
                 habit: habit,
                 viewModel: viewModel
@@ -93,6 +93,21 @@ struct HabitsView: View {
             }
             try? await viewModel.load()
         }
+    }
+
+    private var selectedHabitBinding: Binding<Habit?> {
+        Binding(
+            get: {
+                guard let id = selectedHabitID else { return nil }
+                return currentHabit(for: id)
+            },
+            set: { selectedHabitID = $0?.id }
+        )
+    }
+
+    private func currentHabit(for id: UUID) -> Habit? {
+        viewModel.activeHabits.first(where: { $0.id == id })
+            ?? viewModel.archivedHabits.first(where: { $0.id == id })
     }
 
     private struct HabitRow: View {

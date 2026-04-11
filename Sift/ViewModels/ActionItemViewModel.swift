@@ -5,7 +5,7 @@ import Observation
 @Observable
 final class ActionItemViewModel {
     private(set) var items: [ActionItem] = []
-    /// `true` until the in-flight `load()` finishes (initial or after user change).
+    /// `true` until the in-flight `load()` finishes when the caller requests a visible loading state.
     private(set) var isLoading = true
     /// Action IDs with a completion patch in flight (avoids racing toggles).
     private(set) var completionSyncInFlightIDs: Set<UUID> = []
@@ -15,9 +15,9 @@ final class ActionItemViewModel {
 
     // MARK: Load
 
-    func load(for day: Date = Date()) async {
-        isLoading = true
-        defer { isLoading = false }
+    func load(for day: Date = Date(), showLoadingState: Bool = true) async {
+        if showLoadingState { isLoading = true }
+        defer { if showLoadingState { isLoading = false } }
 
         guard let userID = service.currentUser?.id else { return }
 
@@ -250,7 +250,6 @@ final class ActionItemViewModel {
                     "entryID": entryID as Any
                 ]
             )
-            NotificationCenter.default.post(name: .siftJournalEntitiesDidSync, object: nil)
         }
     }
 

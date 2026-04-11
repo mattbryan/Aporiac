@@ -11,7 +11,7 @@ final class HabitViewModel {
     private(set) var todayLogs: [UUID: HabitLog] = [:]
     /// Local start-of-day for which `todayLogs` and `setLog` / `cycleLog` apply.
     private(set) var loadedLogDayStart: Date = Calendar.current.startOfDay(for: Date())
-    /// `true` until the in-flight `load()` finishes.
+    /// `true` until the in-flight `load()` finishes when the caller requests a visible loading state.
     private(set) var isLoading = true
     /// Set when `load()` fails for reasons other than `notAuthenticated` (e.g. network).
     private(set) var lastLoadError: String?
@@ -21,9 +21,9 @@ final class HabitViewModel {
     private var setLogChainTasks: [UUID: Task<Void, Error>] = [:]
 
     /// Fetches active habits, archived habits, and logs for `referenceDay` for active habits.
-    func load(for referenceDay: Date = Date()) async throws {
-        isLoading = true
-        defer { isLoading = false }
+    func load(for referenceDay: Date = Date(), showLoadingState: Bool = true) async throws {
+        if showLoadingState { isLoading = true }
+        defer { if showLoadingState { isLoading = false } }
 
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: referenceDay)

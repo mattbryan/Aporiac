@@ -153,22 +153,26 @@ struct CalendarDayHomeView: View {
                     try? await Task.sleep(for: .milliseconds(300))
                     async let card: () = homeViewModel.refreshEntryCard(for: dayStart)
                     async let ids: [UUID] = fetchDayEntryIDs()
-                    async let actions: () = actionViewModel.load(for: dayStart)
+                    async let actions: () = actionViewModel.load(for: dayStart, showLoadingState: false)
                     let (_, newIDs, _) = await (card, ids, actions)
+                    let idsChanged = newIDs != dayEntryIDs
                     dayEntryIDs = newIDs
-                    await loadDayGems()
+                    await loadDayGems(showLoading: idsChanged)
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .siftJournalEntitiesDidSync)) { _ in
             Task {
-                await actionViewModel.load(for: dayStart)
+                await actionViewModel.load(for: dayStart, showLoadingState: false)
                 do {
-                    dayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
+                    let newIDs = try await SupabaseService.shared.fetchEntryIDs(on: dayStart)
+                    let idsChanged = newIDs != dayEntryIDs
+                    dayEntryIDs = newIDs
+                    await loadDayGems(showLoading: idsChanged)
                 } catch {
                     dayEntryIDs = []
+                    await loadDayGems(showLoading: false)
                 }
-                await loadDayGems()
             }
         }
     }

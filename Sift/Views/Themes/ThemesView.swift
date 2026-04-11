@@ -4,7 +4,7 @@ import SwiftUI
 struct ThemesView: View {
     @State private var viewModel = ThemeViewModel()
     @State private var showCreateSheet = false
-    @State private var editingTheme: Theme? = nil
+    @State private var editingThemeID: UUID? = nil
     @State private var showArchived = false
 
     var body: some View {
@@ -34,7 +34,7 @@ struct ThemesView: View {
                         ForEach(viewModel.activeThemes) { theme in
                             ThemeRow(theme: theme)
                                 .onTapGesture {
-                                    editingTheme = theme
+                                    editingThemeID = theme.id
                                 }
                         }
                     }
@@ -61,7 +61,7 @@ struct ThemesView: View {
                         ForEach(viewModel.archivedThemes) { theme in
                             ThemeRow(theme: theme, archived: true)
                                 .onTapGesture {
-                                    editingTheme = theme
+                                    editingThemeID = theme.id
                                 }
                         }
                     }
@@ -79,15 +79,19 @@ struct ThemesView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .sheet(item: $editingTheme) { theme in
+        .sheet(item: editingThemeBinding) { theme in
             ThemeFormSheet(mode: .edit(theme)) { title, description in
-                Task { try? await viewModel.update(theme: theme, title: title, description: description) }
+                Task {
+                    guard let current = currentTheme(for: theme.id) else { return }
+                    try? await viewModel.update(theme: current, title: title, description: description)
+                }
             } onArchive: {
                 Task {
-                    if theme.active {
-                        try? await viewModel.archive(theme)
+                    guard let current = currentTheme(for: theme.id) else { return }
+                    if current.active {
+                        try? await viewModel.archive(current)
                     } else {
-                        try? await viewModel.unarchive(theme)
+                        try? await viewModel.unarchive(current)
                     }
                 }
             }
@@ -100,6 +104,21 @@ struct ThemesView: View {
             }
             try? await viewModel.load()
         }
+    }
+
+    private var editingThemeBinding: Binding<Theme?> {
+        Binding(
+            get: {
+                guard let id = editingThemeID else { return nil }
+                return currentTheme(for: id)
+            },
+            set: { editingThemeID = $0?.id }
+        )
+    }
+
+    private func currentTheme(for id: UUID) -> Theme? {
+        viewModel.activeThemes.first(where: { $0.id == id })
+            ?? viewModel.archivedThemes.first(where: { $0.id == id })
     }
 
     private struct ThemeRow: View {

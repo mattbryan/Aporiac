@@ -110,10 +110,10 @@ struct HomeView: View {
             }
             .onChange(of: SupabaseService.shared.currentUser?.id) {
                 Task {
-                    await actionViewModel.load(for: Date())
+                    await actionViewModel.load(for: Date(), showLoadingState: false)
                     await homeViewModel.refreshEntryCard()
                     do {
-                        try await habitViewModel.load()
+                        try await habitViewModel.load(showLoadingState: false)
                     } catch {}
                     do {
                         homeDayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
@@ -121,7 +121,7 @@ struct HomeView: View {
                         homeDayEntryIDs = []
                     }
                     homeDayGemsShellReady = true
-                    await loadHomeDayGems()
+                    await loadHomeDayGems(showLoading: false)
                 }
             }
             .onChange(of: showEntry) {
@@ -130,10 +130,11 @@ struct HomeView: View {
                         try? await Task.sleep(for: .milliseconds(300))
                         async let card: () = homeViewModel.refreshEntryCard()
                         async let ids: [UUID] = fetchHomeDayEntryIDs()
-                        async let actions: () = actionViewModel.load(for: Date())
+                        async let actions: () = actionViewModel.load(for: Date(), showLoadingState: false)
                         let (_, newIDs, _) = await (card, ids, actions)
+                        let idsChanged = newIDs != homeDayEntryIDs
                         homeDayEntryIDs = newIDs
-                        await loadHomeDayGems()
+                        await loadHomeDayGems(showLoading: idsChanged)
                     }
                 }
             }
@@ -143,27 +144,31 @@ struct HomeView: View {
                         try? await Task.sleep(for: .milliseconds(300))
                         async let card: () = homeViewModel.refreshEntryCard()
                         async let ids: [UUID] = fetchHomeDayEntryIDs()
-                        async let actions: () = actionViewModel.load(for: Date())
+                        async let actions: () = actionViewModel.load(for: Date(), showLoadingState: false)
                         async let habits: () = {
                             do {
-                                try await habitViewModel.load()
+                                try await habitViewModel.load(showLoadingState: false)
                             } catch {}
                         }()
                         let (_, newIDs, _, _) = await (card, ids, actions, habits)
+                        let idsChanged = newIDs != homeDayEntryIDs
                         homeDayEntryIDs = newIDs
-                        await loadHomeDayGems()
+                        await loadHomeDayGems(showLoading: idsChanged)
                     }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .siftJournalEntitiesDidSync)) { _ in
                 Task {
-                    await actionViewModel.load(for: Date())
+                    await actionViewModel.load(for: Date(), showLoadingState: false)
                     do {
-                        homeDayEntryIDs = try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
+                        let newIDs = try await SupabaseService.shared.fetchEntryIDs(on: homeDayStart)
+                        let idsChanged = newIDs != homeDayEntryIDs
+                        homeDayEntryIDs = newIDs
+                        await loadHomeDayGems(showLoading: idsChanged)
                     } catch {
                         homeDayEntryIDs = []
+                        await loadHomeDayGems(showLoading: false)
                     }
-                    await loadHomeDayGems()
                 }
             }
                 .navigationDestination(for: UUID.self) { gemID in
