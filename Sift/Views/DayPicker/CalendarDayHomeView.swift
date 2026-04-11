@@ -29,6 +29,8 @@ struct CalendarDayHomeView: View {
     /// Every entry session on this local calendar day (for aggregate gems and section visibility).
     @State private var dayEntryIDs: [UUID] = []
     @State private var gemNavigationPath = NavigationPath()
+    /// Match HomeView's top-bar feather so the material fades instead of ending at a hard edge.
+    private let topBarFeatherExtent: CGFloat = 32
 
     private var dayStart: Date {
         Calendar.current.startOfDay(for: calendarDay)
@@ -189,40 +191,63 @@ struct CalendarDayHomeView: View {
 
     /// Matches `HomeView`’s scrolled top bar: calendar, short date, settings.
     private var pastDayTopToolbar: some View {
-        let barHeight = DS.ButtonHeight.large
-        return HStack(spacing: 0) {
-            Button {
-                dismissTypingFocus()
-                dismiss()
-            } label: {
-                Image(systemName: "calendar")
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 40, height: 40)
+        let barHeight: CGFloat = DS.ButtonHeight.large
+        let fadeTotal = barHeight + topBarFeatherExtent
+        let solidThrough = barHeight / fadeTotal
+
+        return ZStack(alignment: .top) {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(maxWidth: .infinity)
+                .frame(height: fadeTotal)
+                .mask {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0),
+                            .init(color: .white, location: solidThrough * 0.92),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+                .allowsHitTesting(false)
+                .ignoresSafeArea(edges: .top)
+
+            HStack(spacing: 0) {
+                Button {
+                    dismissTypingFocus()
+                    dismiss()
+                } label: {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 18, weight: .medium))
+                        .frame(width: 40, height: 40)
+                }
+                .glassEffect(.regular.interactive(), in: Circle())
+                .frame(width: 44)
+
+                Spacer()
+
+                Text(pastDayToolbarTitle)
+                    .font(.siftBodyMedium)
+                    .foregroundStyle(Color.siftInk)
+
+                Spacer()
+
+                Button {
+                    dismissTypingFocus()
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 18, weight: .medium))
+                        .frame(width: 40, height: 40)
+                }
+                .glassEffect(.regular.interactive(), in: Circle())
+                .frame(width: 44)
             }
-            .glassEffect(.regular.interactive(), in: Circle())
-            .frame(width: 44)
-
-            Spacer()
-
-            Text(pastDayToolbarTitle)
-                .font(.siftBodyMedium)
-                .foregroundStyle(Color.siftInk)
-
-            Spacer()
-
-            Button {
-                dismissTypingFocus()
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 40, height: 40)
-            }
-            .glassEffect(.regular.interactive(), in: Circle())
-            .frame(width: 44)
+            .padding(.horizontal, DS.Spacing.md)
+            .frame(height: barHeight)
         }
-        .padding(.horizontal, DS.Spacing.md)
-        .frame(height: barHeight)
     }
 
     private var pastDayToolbarTitle: String {
