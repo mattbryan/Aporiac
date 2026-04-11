@@ -13,6 +13,7 @@ struct CalendarDayHomeView: View {
     @State private var habitViewModel = HabitViewModel()
     @State private var actionViewModel = ActionItemViewModel()
     @FocusState private var focusedActionItemID: UUID?
+    @State private var scrollOffset: CGFloat = 0
     @State private var openSwipeRowKey: String?
 
     @State private var showEntry = false
@@ -31,6 +32,8 @@ struct CalendarDayHomeView: View {
     @State private var gemNavigationPath = NavigationPath()
     /// Match HomeView's top-bar feather so the material fades instead of ending at a hard edge.
     private let topBarFeatherExtent: CGFloat = 32
+    /// Match HomeView's heading transition so the floating bar appears only after the date block scrolls off.
+    private let headingThreshold: CGFloat = 80
 
     private var dayStart: Date {
         Calendar.current.startOfDay(for: calendarDay)
@@ -38,6 +41,10 @@ struct CalendarDayHomeView: View {
 
     private var isToday: Bool {
         Calendar.current.isDate(dayStart, inSameDayAs: Date())
+    }
+
+    private var isPastHeading: Bool {
+        scrollOffset > headingThreshold
     }
 
     /// True when the day is more than 7 days in the past — entry has expired and should not be shown.
@@ -188,7 +195,6 @@ struct CalendarDayHomeView: View {
                 .padding(.top, DS.Spacing.sm)
             } else {
                 pastDayTopToolbar
-                    .padding(.top, DS.Spacing.sm)
             }
         }
     }
@@ -217,24 +223,33 @@ struct CalendarDayHomeView: View {
                 }
                 .allowsHitTesting(false)
                 .ignoresSafeArea(edges: .top)
+                .opacity(isPastHeading ? 1 : 0)
 
             HStack(spacing: 0) {
-                Button {
-                    dismissTypingFocus()
-                    dismiss()
-                } label: {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 18, weight: .medium))
-                        .frame(width: 40, height: 40)
+                Group {
+                    if isPastHeading {
+                        Button {
+                            dismissTypingFocus()
+                            dismiss()
+                        } label: {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 18, weight: .medium))
+                                .frame(width: 40, height: 40)
+                        }
+                        .glassEffect(.regular.interactive(), in: Circle())
+                        .transition(.opacity.combined(with: .scale(0.85)))
+                    }
                 }
-                .glassEffect(.regular.interactive(), in: Circle())
                 .frame(width: 44)
 
                 Spacer()
 
-                Text(pastDayToolbarTitle)
-                    .font(.siftBodyMedium)
-                    .foregroundStyle(Color.siftInk)
+                if isPastHeading {
+                    Text(pastDayToolbarTitle)
+                        .font(.siftBodyMedium)
+                        .foregroundStyle(Color.siftInk)
+                        .transition(.opacity)
+                }
 
                 Spacer()
 
@@ -252,6 +267,7 @@ struct CalendarDayHomeView: View {
             .padding(.horizontal, DS.Spacing.md)
             .frame(height: barHeight)
         }
+        .animation(DS.animationFast, value: isPastHeading)
     }
 
     private var pastDayToolbarTitle: String {
@@ -494,19 +510,51 @@ struct CalendarDayHomeView: View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .onScrollGeometryChange(for: CGFloat.self) { geo in
+            geo.contentOffset.y
+        } action: { _, newValue in
+            scrollOffset = max(0, newValue)
+        }
     }
 
     private var dateHeading: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                Text(dayStart, format: .dateTime.weekday(.wide))
-                    .siftMicroSectionLabel()
-                    .foregroundStyle(Color.siftAccent)
-                Text(dateHeadingTitle)
-                    .siftTextStyle(.h1Bold)
-                    .foregroundStyle(Color.siftInk)
+        Group {
+            if isToday {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                        Text(dayStart, format: .dateTime.weekday(.wide))
+                            .siftMicroSectionLabel()
+                            .foregroundStyle(Color.siftAccent)
+                        Text(dateHeadingTitle)
+                            .siftTextStyle(.h1Bold)
+                            .foregroundStyle(Color.siftInk)
+                    }
+                    Spacer()
+                }
+            } else {
+                Button {
+                    dismissTypingFocus()
+                    dismiss()
+                } label: {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text(dayStart, format: .dateTime.weekday(.wide))
+                                .siftMicroSectionLabel()
+                                .foregroundStyle(Color.siftAccent)
+                            HStack(alignment: .center, spacing: DS.Spacing.sm) {
+                                Text(dateHeadingTitle)
+                                    .siftTextStyle(.h1Bold)
+                                    .foregroundStyle(Color.siftInk)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 26, weight: .medium))
+                                    .foregroundStyle(Color.siftAccent)
+                            }
+                        }
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
             }
-            Spacer()
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.top, DS.Spacing.xs)

@@ -1,10 +1,20 @@
 import SwiftUI
+import UIKit
 
 private enum MainTab: Int, Hashable {
     case today = 0
     case gems
     case themes
     case habits
+}
+
+final class SiftAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        .portrait
+    }
 }
 
 // MARK: - Compose accessory
@@ -242,6 +252,8 @@ private struct MainAppView: View {
 
 @main
 struct SiftApp: App {
+    @UIApplicationDelegateAdaptor(SiftAppDelegate.self) private var appDelegate
+
     @AppStorage(AppColorSchemeOverride.storageKey)
     private var colorSchemeRaw: String = AppColorSchemeOverride.system.rawValue
 
