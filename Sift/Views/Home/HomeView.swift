@@ -370,18 +370,24 @@ struct HomeView: View {
                         contentBackdrop: Color.siftSurface,
                         onFullSwipeLeading: {
                             openSwipeRowKey = nil
-                            actionViewModel.complete(item)
+                            withAnimation(DS.animationFast) {
+                                actionViewModel.complete(item)
+                            }
                         },
                         onFullSwipeTrailing: {
                             openSwipeRowKey = nil
-                            actionViewModel.delete(item)
+                            withAnimation(DS.animationFast) {
+                                actionViewModel.delete(item)
+                            }
                         },
                         dragGestureMinimumDistance: 36,
                         swipeUsesHighPriorityGesture: false,
                         leading: {
                             Button {
                                 openSwipeRowKey = nil
-                                actionViewModel.complete(item)
+                                withAnimation(DS.animationFast) {
+                                    actionViewModel.complete(item)
+                                }
                             } label: {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 20, weight: .semibold))
@@ -428,18 +434,24 @@ struct HomeView: View {
                             contentBackdrop: Color.siftSurface,
                             onFullSwipeLeading: {
                                 openSwipeRowKey = nil
-                                actionViewModel.uncomplete(item)
+                                withAnimation(DS.animationFast) {
+                                    actionViewModel.uncomplete(item)
+                                }
                             },
                             onFullSwipeTrailing: {
                                 openSwipeRowKey = nil
-                                actionViewModel.delete(item)
+                                withAnimation(DS.animationFast) {
+                                    actionViewModel.delete(item)
+                                }
                             },
                             dragGestureMinimumDistance: 36,
                             swipeUsesHighPriorityGesture: false,
                             leading: {
                                 Button {
                                     openSwipeRowKey = nil
-                                    actionViewModel.uncomplete(item)
+                                    withAnimation(DS.animationFast) {
+                                        actionViewModel.uncomplete(item)
+                                    }
                                 } label: {
                                     Image(systemName: "arrow.uturn.left")
                                         .font(.system(size: 18, weight: .medium))
@@ -656,7 +668,9 @@ struct HomeView: View {
             focusedField: $focusedActionItemID,
             onToggle: {
                 dismissTypingFocus()
-                actionViewModel.toggle(item)
+                withAnimation(DS.animationFast) {
+                    actionViewModel.toggle(item)
+                }
             },
             onContentChange: { actionViewModel.updateContent(item, content: $0) },
             onReturnCreatesNewItemBelow: item.completed ? nil : { tail in
