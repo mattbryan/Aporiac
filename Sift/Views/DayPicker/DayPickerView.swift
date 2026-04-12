@@ -38,9 +38,7 @@ final class DayPickerViewModel {
         isLoading = true
         defer { isLoading = false }
 
-        while service.currentUser == nil {
-            try? await Task.sleep(for: .milliseconds(100))
-        }
+        await service.waitForCurrentUser()
         guard let userID = service.currentUser?.id else {
             days = []
             return

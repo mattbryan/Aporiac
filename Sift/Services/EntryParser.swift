@@ -2,7 +2,8 @@ import Foundation
 
 internal struct ParsedGem: Equatable, Sendable {
     let content: String // text with `> ` stripped
-    let lineIndex: Int // 0-indexed line number in the full content string
+    let startLineIndex: Int // 0-indexed line number where the gem block begins
+    let endLineIndex: Int // 0-indexed line number where the gem block ends
 }
 
 internal struct ParsedAction: Equatable, Sendable {
@@ -23,27 +24,48 @@ internal enum EntryParser {
         var actions: [ParsedAction] = []
 
         let lines = text.components(separatedBy: "\n")
+        var lineIndex = 0
 
-        for (index, line) in lines.enumerated() {
+        while lineIndex < lines.count {
+            let line = lines[lineIndex]
+
             if line.hasPrefix("> ") {
-                let content = String(line.dropFirst(2))
-                    .trimmingCharacters(in: .whitespaces)
+                let startLineIndex = lineIndex
+                var gemLines: [String] = []
+
+                while lineIndex < lines.count, lines[lineIndex].hasPrefix("> ") {
+                    gemLines.append(String(lines[lineIndex].dropFirst(2)))
+                    lineIndex += 1
+                }
+
+                let content = gemLines
+                    .joined(separator: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !content.isEmpty else { continue }
-                gems.append(ParsedGem(content: content, lineIndex: index))
+                gems.append(
+                    ParsedGem(
+                        content: content,
+                        startLineIndex: startLineIndex,
+                        endLineIndex: lineIndex - 1
+                    )
+                )
+                continue
 
             // GFM `- [ ]` / `- [x]` (used by `MarkdownTextEditor` toolbar) and legacy `*` task markers — all use 6-char prefixes before the body.
             } else if line.hasPrefix("* [x] ") || line.hasPrefix("- [x] ") {
                 let content = String(line.dropFirst(6))
                     .trimmingCharacters(in: .whitespaces)
                 guard !content.isEmpty else { continue }
-                actions.append(ParsedAction(content: content, completed: true, lineIndex: index))
+                actions.append(ParsedAction(content: content, completed: true, lineIndex: lineIndex))
 
             } else if line.hasPrefix("* [ ] ") || line.hasPrefix("- [ ] ") {
                 let content = String(line.dropFirst(6))
                     .trimmingCharacters(in: .whitespaces)
                 guard !content.isEmpty else { continue }
-                actions.append(ParsedAction(content: content, completed: false, lineIndex: index))
+                actions.append(ParsedAction(content: content, completed: false, lineIndex: lineIndex))
             }
+
+            lineIndex += 1
         }
 
         return ParsedEntry(gems: gems, actions: actions)

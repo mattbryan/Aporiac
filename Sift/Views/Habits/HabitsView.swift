@@ -88,9 +88,7 @@ struct HabitsView: View {
             .presentationDragIndicator(.visible)
         }
         .task {
-            while SupabaseService.shared.currentUser == nil {
-                try? await Task.sleep(for: .milliseconds(100))
-            }
+            await SupabaseService.shared.waitForCurrentUser()
             try? await viewModel.load()
         }
     }

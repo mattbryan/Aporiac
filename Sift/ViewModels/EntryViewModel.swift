@@ -10,7 +10,8 @@ final class EntryViewModel {
     private(set) var currentEntry: Entry?
     /// `true` while the primary entry payload (text) for the current destination is loading.
     private(set) var isEntryContentLoading = true
-    private(set) var dailyPrompt: String = "What's on your mind?"
+    private(set) var dailyPrompt: String?
+    private(set) var isPromptLoading = false
     private(set) var gemViewModel = GemViewModel()
 
     var reviewPrompt: String? = nil
@@ -30,6 +31,7 @@ final class EntryViewModel {
             next.insert(id)
         }
         selectedThemeIDs = next
+        persistSelectedThemes()
     }
 
     private var selectedThemeTitles: [String] {
@@ -40,15 +42,30 @@ final class EntryViewModel {
 
     private static let promptCacheDateKey = "sift.dailyPrompt.date"
     private static let promptCacheTextKey = "sift.dailyPrompt.text"
+    private static let selectedThemeIDsKeyPrefix = "sift.entry.selectedThemeIDs."
+    private static let dailyPromptKeyPrefix = "sift.entry.dailyPrompt."
 
-    /// Fetches the contextual daily prompt (with selected focus themes) before revealing the main writing surface.
-    func prepareWritingPhase() async {
+    /// Fetches the contextual daily prompt (with selected focus themes) for the current entry.
+    func fetchDailyPrompt(forceRefresh: Bool = false) async {
+        guard !selectedThemeIDs.isEmpty else { return }
+        guard let entryID = currentEntry?.id else { return }
+
+        if !forceRefresh, let persisted = UserDefaults.standard.string(forKey: dailyPromptStorageKey(for: entryID)), !persisted.isEmpty {
+            dailyPrompt = persisted
+            return
+        }
+
+        isPromptLoading = true
+        defer { isPromptLoading = false }
+
         let today = Calendar.current.startOfDay(for: Date())
-        if let cachedDateInterval = UserDefaults.standard.object(forKey: Self.promptCacheDateKey) as? Double,
+        if !forceRefresh,
+           let cachedDateInterval = UserDefaults.standard.object(forKey: Self.promptCacheDateKey) as? Double,
            let cachedText = UserDefaults.standard.string(forKey: Self.promptCacheTextKey) {
             let cachedDate = Date(timeIntervalSince1970: cachedDateInterval)
             if Calendar.current.isDate(cachedDate, inSameDayAs: today) {
                 dailyPrompt = cachedText
+                persistDailyPrompt(cachedText)
                 return
             }
         }
@@ -58,6 +75,7 @@ final class EntryViewModel {
         let philosophy = Philosophy.todaysPhilosophy(from: selected)
         let prompt = await AIService.shared.dailyPrompt(themes: selectedThemeTitles, philosophy: philosophy)
         dailyPrompt = prompt
+        persistDailyPrompt(prompt)
 
         UserDefaults.standard.set(today.timeIntervalSince1970, forKey: Self.promptCacheDateKey)
         UserDefaults.standard.set(prompt, forKey: Self.promptCacheTextKey)
@@ -67,6 +85,8 @@ final class EntryViewModel {
     private var service: SupabaseService { .shared }
     /// When true, `scheduleAutosave()` is a no-op (e.g. `contentText` patched to match Supabase after a Home toggle).
     private var suppressScheduleAutosaveForRemoteActionPatch = false
+    /// When true, suppress autosave while hydrating entry state from persisted sources.
+    private var suppressScheduleAutosaveForHydration = false
 
     /// Strips `> ` from the line containing the selection; next save sync removes the gem row.
     func removeGemAtSelection(_ selectionRange: NSRange) {
@@ -127,7 +147,11 @@ final class EntryViewModel {
             let toInsert = parsedGems.filter { !existingContents.contains($0.content) }
             for parsedGem in toInsert {
                 let gemID = UUID()
-                let (rangeStart, rangeEnd) = utf16LineRange(lineIndex: parsedGem.lineIndex, in: contentText)
+                let (rangeStart, rangeEnd) = utf16LineRange(
+                    startLineIndex: parsedGem.startLineIndex,
+                    endLineIndex: parsedGem.endLineIndex,
+                    in: contentText
+                )
                 let insert = GemInsert(
                     id: gemID,
                     userID: userID,
@@ -153,12 +177,13 @@ final class EntryViewModel {
         }
     }
 
-    /// UTF-16 offsets of the gem line within `contentText` (matches legacy `range_start` / `range_end` expectations).
-    private func utf16LineRange(lineIndex: Int, in text: String) -> (start: Int, end: Int) {
+    /// UTF-16 offsets of the gem block within `contentText` (matches legacy `range_start` / `range_end` expectations).
+    private func utf16LineRange(startLineIndex: Int, endLineIndex: Int, in text: String) -> (start: Int, end: Int) {
         let ns = text as NSString
-        guard ns.length > 0, lineIndex >= 0 else { return (0, 0) }
+        guard ns.length > 0, startLineIndex >= 0, endLineIndex >= startLineIndex else { return (0, 0) }
         var lineNumber = 0
         var location = 0
+        var blockStart: Int?
         while location <= ns.length {
             let probe = min(location, max(0, ns.length - 1))
             var lineStart = 0
@@ -166,14 +191,58 @@ final class EntryViewModel {
             var contentsEnd = 0
             ns.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentsEnd,
                             for: NSRange(location: probe, length: 0))
-            if lineNumber == lineIndex {
-                return (lineStart, contentsEnd)
+            if lineNumber == startLineIndex {
+                blockStart = lineStart
+            }
+            if lineNumber == endLineIndex {
+                return (blockStart ?? lineStart, contentsEnd)
             }
             lineNumber += 1
             if lineEnd >= ns.length { break }
             location = lineEnd
         }
         return (0, 0)
+    }
+
+    private func selectedThemeIDsStorageKey(for entryID: UUID) -> String {
+        Self.selectedThemeIDsKeyPrefix + entryID.uuidString
+    }
+
+    private func dailyPromptStorageKey(for entryID: UUID) -> String {
+        Self.dailyPromptKeyPrefix + entryID.uuidString
+    }
+
+    private func persistSelectedThemes() {
+        guard let entryID = currentEntry?.id else { return }
+        let raw = selectedThemeIDs.map(\.uuidString).sorted().joined(separator: ",")
+        UserDefaults.standard.set(raw, forKey: selectedThemeIDsStorageKey(for: entryID))
+    }
+
+    private func persistDailyPrompt(_ prompt: String) {
+        guard let entryID = currentEntry?.id else { return }
+        UserDefaults.standard.set(prompt, forKey: dailyPromptStorageKey(for: entryID))
+    }
+
+    private func restoreSelectedThemes(for entryID: UUID) {
+        let raw = UserDefaults.standard.string(forKey: selectedThemeIDsStorageKey(for: entryID)) ?? ""
+        let restored = raw
+            .split(separator: ",")
+            .compactMap { UUID(uuidString: String($0)) }
+        selectedThemeIDs = Set(restored)
+    }
+
+    private func restoreDailyPrompt(for entryID: UUID) {
+        dailyPrompt = UserDefaults.standard.string(forKey: dailyPromptStorageKey(for: entryID))
+    }
+
+    private func applyLoadedEntryState(_ entry: Entry) {
+        suppressScheduleAutosaveForHydration = true
+        currentEntry = entry
+        gratitudeText = entry.gratitudeContent
+        contentText = entry.content
+        restoreSelectedThemes(for: entry.id)
+        restoreDailyPrompt(for: entry.id)
+        suppressScheduleAutosaveForHydration = false
     }
 
     /// Links a newly synced gem to **Today's Focus** themes (`selectedThemeIDs`) — no modal; user opts in via entry chips.
@@ -318,9 +387,7 @@ final class EntryViewModel {
             print("[Entry] Found \(entries.count) existing entries")
             #endif
             if let entry = entries.first {
-                currentEntry = entry
-                gratitudeText = entry.gratitudeContent
-                contentText = entry.content
+                applyLoadedEntryState(entry)
                 Task { try? await gemViewModel.load() }
             } else {
                 #if DEBUG
@@ -331,7 +398,9 @@ final class EntryViewModel {
             }
 
             if let prompt = reviewPrompt, contentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                suppressScheduleAutosaveForHydration = true
                 contentText = prompt
+                suppressScheduleAutosaveForHydration = false
             }
         } catch {
             print("[Entry] Failed to load: \(error)")
@@ -355,9 +424,7 @@ final class EntryViewModel {
                 .value
 
             guard let entry = entries.first else { return }
-            currentEntry = entry
-            gratitudeText = entry.gratitudeContent
-            contentText = entry.content
+            applyLoadedEntryState(entry)
             Task { try? await gemViewModel.load() }
         } catch {
             print("[Entry] Failed to load entry \(id): \(error)")
@@ -386,7 +453,11 @@ final class EntryViewModel {
         #if DEBUG
         print("[Entry] Insert succeeded")
         #endif
+        suppressScheduleAutosaveForHydration = true
         currentEntry = entry
+        selectedThemeIDs = []
+        dailyPrompt = nil
+        suppressScheduleAutosaveForHydration = false
     }
 
     // MARK: Autosave
@@ -407,7 +478,7 @@ final class EntryViewModel {
 
     /// Call this whenever text changes — saves after a short debounce.
     func scheduleAutosave() {
-        if suppressScheduleAutosaveForRemoteActionPatch { return }
+        if suppressScheduleAutosaveForRemoteActionPatch || suppressScheduleAutosaveForHydration { return }
         saveTask?.cancel()
         saveTask = Task {
             try? await Task.sleep(for: .seconds(1))
@@ -436,9 +507,7 @@ final class EntryViewModel {
                 .execute()
                 .value
             guard let row = rows.first else { return }
-            gratitudeText = row.gratitudeContent
-            contentText = row.content
-            currentEntry = row
+            applyLoadedEntryState(row)
         } catch {
             print("[Entry] reloadCurrentEntryBodyFromServerIfNeeded failed: \(error)")
         }

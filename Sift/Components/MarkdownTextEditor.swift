@@ -87,8 +87,10 @@ internal final class MarkdownTransformTrigger: @unchecked Sendable {
 private enum MarkdownBlockCardLayout {
     /// No extra inset — fragment already matches layout; avoids painting below the line the typesetter uses.
     static let cardVerticalPadding: CGFloat = 0
-    /// Space before/after block paragraphs (plain lines use default 0).
-    static let paragraphMargin = DS.Spacing.sm
+    /// Space before/after gem paragraphs (plain lines use default 0).
+    static let gemParagraphMargin = DS.Spacing.sm
+    /// More vertical separation keeps stacked action cards from visually colliding.
+    static let actionParagraphMargin = DS.Spacing.md
 }
 
 /// Horizontal rhythm for gem accent + action checkbox — keep drawing and `headIndent` aligned.
@@ -274,11 +276,17 @@ final class MarkdownLayoutManager: NSLayoutManager {
             circlePath.stroke()
         }
     }
+
 }
 
 // MARK: - MarkdownGrowingTextView
 
 final class MarkdownGrowingTextView: UITextView {
+
+    // Re-entrancy guard: same layout-loop risk as GrowingTextView — layoutSubviews calling
+    // invalidateIntrinsicContentSize() → intrinsicContentSize → sizeThatFits → text layout
+    // → layoutSubviews again. The flag breaks that cycle.
+    private var _isInLayout = false
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
@@ -292,6 +300,9 @@ final class MarkdownGrowingTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        guard !_isInLayout else { return }
+        _isInLayout = true
+        defer { _isInLayout = false }
         var widthChanged = false
         for case let label as UILabel in subviews {
             if label.preferredMaxLayoutWidth != bounds.width {
@@ -743,8 +754,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             style.headIndent = head
             style.firstLineHeadIndent = head
             style.tailIndent = -DS.Spacing.xs
-            style.paragraphSpacingBefore = MarkdownBlockCardLayout.paragraphMargin
-            style.paragraphSpacing = MarkdownBlockCardLayout.paragraphMargin
+            style.paragraphSpacingBefore = MarkdownBlockCardLayout.gemParagraphMargin
+            style.paragraphSpacing = MarkdownBlockCardLayout.gemParagraphMargin
 
             storage.addAttribute(.paragraphStyle, value: style, range: lineRange)
             storage.addAttribute(.siftBlockKind, value: SiftBlockKind.gem, range: lineRange)
@@ -770,8 +781,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             style.headIndent = head
             style.firstLineHeadIndent = head
             style.tailIndent = -DS.Spacing.xs
-            style.paragraphSpacingBefore = MarkdownBlockCardLayout.paragraphMargin
-            style.paragraphSpacing = MarkdownBlockCardLayout.paragraphMargin
+            style.paragraphSpacingBefore = 0
+            style.paragraphSpacing = MarkdownBlockCardLayout.actionParagraphMargin
 
             storage.addAttribute(.paragraphStyle, value: style, range: lineRange)
             let kind: SiftBlockKind = completed ? .actionComplete : .actionIncomplete

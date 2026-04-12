@@ -22,9 +22,6 @@ struct EntryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel = EntryViewModel()
 
-    /// Whether the ENTRY section is unlocked. False = show "Start Entry" button. True = show editor.
-    @State private var entryStarted: Bool = false
-
     @FocusState private var gratitudeEditorFocused: Bool
 
     private let contentTransformTrigger = MarkdownTransformTrigger()
@@ -93,50 +90,26 @@ struct EntryView: View {
                             }
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            todaysPromptSurface
                             Rectangle()
                                 .fill(Color.siftDivider)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 2)
                         }
 
-                        // ENTRY — toggled by entryStarted
-                        if entryStarted {
-                            VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                                Text("ENTRY")
-                                    .siftTextStyle(.microBold)
-                                    .foregroundStyle(Color.siftAccent)
-                                MarkdownTextEditor(
-                                    text: $viewModel.contentText,
-                                    placeholder: viewModel.dailyPrompt,
-                                    textColor: .siftInk,
-                                    bodyOpacity: entryBodyOpacity,
-                                    trigger: contentTransformTrigger,
-                                    onSelectionChanged: nil
-                                )
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        } else {
-                            // Start Entry button
-                            Button {
-                                gratitudeEditorFocused = false
-                                Task {
-                                    await viewModel.prepareWritingPhase()
-                                    withAnimation(DS.animationSlow) {
-                                        entryStarted = true
-                                    }
-                                }
-                            } label: {
-                                Text("Start Entry")
-                                    .font(.siftBodyMedium)
-                                    .foregroundStyle(Color.siftInk)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DS.Radius.xs)
-                                    .strokeBorder(Color.siftAccent, lineWidth: 2)
+                        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                            Text("ENTRY")
+                                .siftTextStyle(.microBold)
+                                .foregroundStyle(Color.siftAccent)
+                            MarkdownTextEditor(
+                                text: $viewModel.contentText,
+                                placeholder: "Start Entry",
+                                textColor: .siftInk,
+                                bodyOpacity: entryBodyOpacity,
+                                trigger: contentTransformTrigger,
+                                onSelectionChanged: nil
                             )
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }
@@ -168,25 +141,21 @@ struct EntryView: View {
             }
         }
         .task {
-            await SupabaseService.shared.waitForCurrentUser()
+            // EntryView is only reachable from the authenticated app shell — currentUser is
+            // guaranteed non-nil here. Calling waitForCurrentUser() was blocking the task for
+            // up to 20 seconds on token-refresh race conditions, freezing the skeleton screen.
             if let context = reviewContext {
                 viewModel.reviewPrompt = reviewPromptText(for: context)
             }
             switch destination {
             case .today:
                 await viewModel.loadOrCreateTodayEntry()
-                let hasContent = !viewModel.contentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                if hasContent || reviewContext != nil {
-                    await viewModel.prepareWritingPhase()
-                    entryStarted = true
-                }
             case .past(let id, _):
                 await viewModel.loadEntry(id: id)
-                entryStarted = true
             }
         }
-        .onChange(of: viewModel.gratitudeText) { viewModel.scheduleAutosave() }
-        .onChange(of: viewModel.contentText) { viewModel.scheduleAutosave() }
+        .onChange(of: viewModel.gratitudeText) { _, _ in viewModel.scheduleAutosave() }
+        .onChange(of: viewModel.contentText) { _, _ in viewModel.scheduleAutosave() }
         .onReceive(NotificationCenter.default.publisher(for: .siftActionCompletionChanged)) { notification in
             guard
                 let content = notification.userInfo?["actionContent"] as? String,
@@ -229,6 +198,66 @@ struct EntryView: View {
             SiftSkeletonLine(height: 44, widthFraction: 1)
         }
         .padding(.top, DS.Spacing.xs)
+    }
+
+    @ViewBuilder
+    private var todaysPromptSurface: some View {
+        if let prompt = viewModel.dailyPrompt, !prompt.isEmpty {
+            HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                Text(prompt)
+                    .siftTextStyle(.p1Regular)
+                    .foregroundStyle(Color.siftInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button {
+                    gratitudeEditorFocused = false
+                    Task { await viewModel.fetchDailyPrompt(forceRefresh: true) }
+                } label: {
+                    if viewModel.isPromptLoading {
+                        ProgressView()
+                            .tint(Color.siftInk)
+                            .frame(width: 40, height: 40)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color.siftInk)
+                            .frame(width: 40, height: 40)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isPromptLoading)
+            }
+            .padding(DS.Spacing.md)
+            .background(Color.siftCard, in: RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous))
+        } else {
+            Button {
+                gratitudeEditorFocused = false
+                Task { await viewModel.fetchDailyPrompt() }
+            } label: {
+                HStack {
+                    if viewModel.isPromptLoading {
+                        ProgressView()
+                            .tint(Color.siftInk)
+                    } else {
+                        Text("Get Today's Prompt")
+                            .font(.siftBodyMedium)
+                            .foregroundStyle(viewModel.selectedThemeIDs.isEmpty ? Color.siftSubtle : Color.siftInk)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.selectedThemeIDs.isEmpty || viewModel.isPromptLoading)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous)
+                    .fill(Color.siftCard.opacity(viewModel.selectedThemeIDs.isEmpty ? 0.6 : 1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.xs)
+                    .strokeBorder(viewModel.selectedThemeIDs.isEmpty ? Color.siftDivider : Color.siftAccent, lineWidth: 2)
+            )
+        }
     }
 
     private func reviewPromptText(for context: ReviewContext) -> String {
