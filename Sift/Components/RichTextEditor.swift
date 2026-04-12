@@ -235,12 +235,6 @@ internal struct RichTextEditor: UIViewRepresentable {
 // MARK: - GrowingTextView
 
 final class GrowingTextView: UITextView {
-
-    // Re-entrancy guard: layoutSubviews calling invalidateIntrinsicContentSize() asks UIKit
-    // to measure intrinsicContentSize, which calls sizeThatFits(), which can force text layout,
-    // which calls layoutSubviews() again — an infinite loop. The flag breaks that cycle.
-    private var _isInLayout = false
-
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
     }
@@ -252,18 +246,10 @@ final class GrowingTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        guard !_isInLayout else { return }
-        _isInLayout = true
-        defer { _isInLayout = false }
-        var widthChanged = false
         for case let label as UILabel in subviews {
             if label.preferredMaxLayoutWidth != bounds.width {
                 label.preferredMaxLayoutWidth = bounds.width
-                widthChanged = true
             }
-        }
-        if widthChanged {
-            invalidateIntrinsicContentSize()
         }
     }
 

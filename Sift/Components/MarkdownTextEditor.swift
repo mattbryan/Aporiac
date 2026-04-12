@@ -282,12 +282,6 @@ final class MarkdownLayoutManager: NSLayoutManager {
 // MARK: - MarkdownGrowingTextView
 
 final class MarkdownGrowingTextView: UITextView {
-
-    // Re-entrancy guard: same layout-loop risk as GrowingTextView — layoutSubviews calling
-    // invalidateIntrinsicContentSize() → intrinsicContentSize → sizeThatFits → text layout
-    // → layoutSubviews again. The flag breaks that cycle.
-    private var _isInLayout = false
-
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
         self.textContainer.lineFragmentPadding = 0
@@ -300,17 +294,11 @@ final class MarkdownGrowingTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        guard !_isInLayout else { return }
-        _isInLayout = true
-        defer { _isInLayout = false }
-        var widthChanged = false
         for case let label as UILabel in subviews {
             if label.preferredMaxLayoutWidth != bounds.width {
                 label.preferredMaxLayoutWidth = bounds.width
-                widthChanged = true
             }
         }
-        if widthChanged { invalidateIntrinsicContentSize() }
     }
 
     override var intrinsicContentSize: CGSize {
