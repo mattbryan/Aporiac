@@ -6,6 +6,7 @@ struct Entry: Identifiable, Codable, Sendable, Equatable {
     let userID: UUID
     var gratitudeContent: String
     var content: String
+    var contentBlocks: [PersistedEntryBlock]?
     let createdAt: Date
     let expiresAt: Date
     var hasGem: Bool
@@ -15,6 +16,7 @@ struct Entry: Identifiable, Codable, Sendable, Equatable {
         case userID = "user_id"
         case gratitudeContent = "gratitude_content"
         case content
+        case contentBlocks = "content_blocks"
         case createdAt = "created_at"
         case expiresAt = "expires_at"
         case hasGem = "has_gem"

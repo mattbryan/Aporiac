@@ -2,8 +2,8 @@ import Foundation
 
 internal struct ParsedGem: Equatable, Sendable {
     let content: String // text with `> ` stripped
-    let startLineIndex: Int // 0-indexed line number where the gem block begins
-    let endLineIndex: Int // 0-indexed line number where the gem block ends
+    let startLineIndex: Int // 0-indexed first line number in the full content string
+    let endLineIndex: Int // 0-indexed last line number in the full content string
 }
 
 internal struct ParsedAction: Equatable, Sendable {
@@ -28,43 +28,72 @@ internal enum EntryParser {
 
         while lineIndex < lines.count {
             let line = lines[lineIndex]
-
             if line.hasPrefix("> ") {
                 let startLineIndex = lineIndex
-                var gemLines: [String] = []
+                var blockLines = [String(line.dropFirst(2))]
+                var lastContentLineIndex = lineIndex
+                var blankLineRun = 0
+                lineIndex += 1
 
-                while lineIndex < lines.count, lines[lineIndex].hasPrefix("> ") {
-                    gemLines.append(String(lines[lineIndex].dropFirst(2)))
+                while lineIndex < lines.count {
+                    let nextLine = lines[lineIndex]
+                    if nextLine.hasPrefix("> ")
+                        || nextLine.hasPrefix("# ")
+                        || nextLine.hasPrefix("## ")
+                        || nextLine.hasPrefix("* [x] ")
+                        || nextLine.hasPrefix("* [ ] ")
+                        || nextLine.hasPrefix("- [x] ")
+                        || nextLine.hasPrefix("- [ ] ") {
+                        break
+                    }
+
+                    if nextLine.trimmingCharacters(in: .whitespaces).isEmpty {
+                        blankLineRun += 1
+                        if blankLineRun >= 2 {
+                            break
+                        }
+                    } else {
+                        blankLineRun = 0
+                        lastContentLineIndex = lineIndex
+                    }
+
+                    blockLines.append(nextLine)
                     lineIndex += 1
                 }
 
-                let content = gemLines
+                let content = blockLines
                     .joined(separator: "\n")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !content.isEmpty else { continue }
-                gems.append(
-                    ParsedGem(
-                        content: content,
-                        startLineIndex: startLineIndex,
-                        endLineIndex: lineIndex - 1
+                if !content.isEmpty {
+                    gems.append(
+                        ParsedGem(
+                            content: content,
+                            startLineIndex: startLineIndex,
+                            endLineIndex: lastContentLineIndex
+                        )
                     )
-                )
+                }
                 continue
 
             // GFM `- [ ]` / `- [x]` (used by `MarkdownTextEditor` toolbar) and legacy `*` task markers — all use 6-char prefixes before the body.
             } else if line.hasPrefix("* [x] ") || line.hasPrefix("- [x] ") {
                 let content = String(line.dropFirst(6))
                     .trimmingCharacters(in: .whitespaces)
-                guard !content.isEmpty else { continue }
+                guard !content.isEmpty else {
+                    lineIndex += 1
+                    continue
+                }
                 actions.append(ParsedAction(content: content, completed: true, lineIndex: lineIndex))
 
             } else if line.hasPrefix("* [ ] ") || line.hasPrefix("- [ ] ") {
                 let content = String(line.dropFirst(6))
                     .trimmingCharacters(in: .whitespaces)
-                guard !content.isEmpty else { continue }
+                guard !content.isEmpty else {
+                    lineIndex += 1
+                    continue
+                }
                 actions.append(ParsedAction(content: content, completed: false, lineIndex: lineIndex))
             }
-
             lineIndex += 1
         }
 

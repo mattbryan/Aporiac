@@ -168,6 +168,7 @@ struct HomeView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .siftJournalEntitiesDidSync)) { _ in
+                guard !showEntry else { return }
                 Task {
                     await actionViewModel.load(for: Date(), showLoadingState: false)
                     do {

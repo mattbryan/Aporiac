@@ -418,8 +418,8 @@ private struct StableBlockTextEditor: UIViewRepresentable {
             (textView as? GrowingTextView)?.invalidateIntrinsicContentSize()
         }
 
-        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText replacementText: String) -> Bool {
-            if replacementText == "\n" {
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            if text == "\n" {
                 switch parent.onReturn(textView.text ?? "", range) {
                 case .allowSystem:
                     return true
@@ -433,7 +433,7 @@ private struct StableBlockTextEditor: UIViewRepresentable {
                 }
             }
 
-            if replacementText.isEmpty, range.length == 0, range.location == 0 {
+            if text.isEmpty, range.length == 0, range.location == 0 {
                 switch parent.onBackspaceAtStart() {
                 case .allowSystem:
                     return true

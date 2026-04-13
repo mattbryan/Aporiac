@@ -15,6 +15,7 @@ internal struct RichTextEditor: UIViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var textColor: Color = .siftInk
+    var uiFont: UIFont? = nil
     var listMode: RichTextListMode = .none
     var onSelectionChanged: ((Bool, NSRange) -> Void)? = nil
 
@@ -28,7 +29,7 @@ internal struct RichTextEditor: UIViewRepresentable {
         textView.backgroundColor = .clear
         textView.textColor = UIColor(textColor)
         textView.tintColor = UIColor(Color.siftAccent)
-        textView.font = RichTextEditor.baseFont
+        textView.font = resolvedFont
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
         textView.isScrollEnabled = false
@@ -36,11 +37,11 @@ internal struct RichTextEditor: UIViewRepresentable {
         textView.showsHorizontalScrollIndicator = false
         textView.autocorrectionType = .default
         textView.autocapitalizationType = .sentences
-        textView.typingAttributes = RichTextEditor.baseTypingAttributes(textColor: UIColor(textColor))
+        textView.typingAttributes = Self.baseTypingAttributes(font: resolvedFont, textColor: UIColor(textColor))
 
         let placeholderLabel = UILabel()
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-        placeholderLabel.font = RichTextEditor.baseFont
+        placeholderLabel.font = resolvedFont
         placeholderLabel.textColor = UIColor(Color.siftSubtle)
         placeholderLabel.numberOfLines = 0
         placeholderLabel.isUserInteractionEnabled = false
@@ -54,7 +55,7 @@ internal struct RichTextEditor: UIViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.placeholderLabel = placeholderLabel
 
-        context.coordinator.applyFullContent(text: text, textColor: UIColor(textColor))
+        context.coordinator.applyFullContent(text: text, textColor: UIColor(textColor), font: resolvedFont)
         context.coordinator.syncState(text: text, textColor: UIColor(textColor))
         context.coordinator.refreshPlaceholder(placeholder: placeholder, isEmpty: text.isEmpty)
 
@@ -85,6 +86,7 @@ internal struct RichTextEditor: UIViewRepresentable {
 
         let uiTextColor = UIColor(textColor)
         let tvText = uiView.text ?? ""
+        let resolvedFont = self.resolvedFont
 
         if coordinator.lastPlaceholder != placeholder || coordinator.lastTextEmpty != text.isEmpty {
             coordinator.refreshPlaceholder(placeholder: placeholder, isEmpty: text.isEmpty)
@@ -93,23 +95,27 @@ internal struct RichTextEditor: UIViewRepresentable {
         }
 
         if text != tvText {
-            coordinator.applyFullContent(text: text, textColor: uiTextColor)
+            coordinator.applyFullContent(text: text, textColor: uiTextColor, font: resolvedFont)
             coordinator.syncState(text: text, textColor: uiTextColor)
-            uiView.typingAttributes = Self.baseTypingAttributes(textColor: uiTextColor)
+            uiView.typingAttributes = Self.baseTypingAttributes(font: resolvedFont, textColor: uiTextColor)
+            uiView.font = resolvedFont
             uiView.invalidateIntrinsicContentSize()
             return
         }
 
         let colorMatch = coordinator.lastSyncedTextColor.map { $0.isEqual(uiTextColor) } ?? false
-        guard !colorMatch else { return }
+        let fontMatch = uiView.font == resolvedFont
+        guard !colorMatch || !fontMatch else { return }
 
-        coordinator.applyFullContent(text: text, textColor: uiTextColor)
+        coordinator.applyFullContent(text: text, textColor: uiTextColor, font: resolvedFont)
         coordinator.syncState(text: text, textColor: uiTextColor)
-        uiView.typingAttributes = Self.baseTypingAttributes(textColor: uiTextColor)
+        uiView.typingAttributes = Self.baseTypingAttributes(font: resolvedFont, textColor: uiTextColor)
+        uiView.font = resolvedFont
         uiView.invalidateIntrinsicContentSize()
     }
 
     fileprivate static let baseFont: UIFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+    private var resolvedFont: UIFont { uiFont ?? Self.baseFont }
 
     /// Plain-text bullet + space — stored verbatim so Supabase stays aligned with `String` offsets.
     fileprivate static let bulletPrefix = "• "
@@ -123,9 +129,9 @@ internal struct RichTextEditor: UIViewRepresentable {
         }.joined(separator: "\n")
     }
 
-    fileprivate static func baseTypingAttributes(textColor: UIColor) -> [NSAttributedString.Key: Any] {
+    fileprivate static func baseTypingAttributes(font: UIFont = baseFont, textColor: UIColor) -> [NSAttributedString.Key: Any] {
         [
-            NSAttributedString.Key.font: baseFont,
+            NSAttributedString.Key.font: font,
             NSAttributedString.Key.foregroundColor: textColor,
         ]
     }
@@ -162,15 +168,15 @@ internal struct RichTextEditor: UIViewRepresentable {
             lastSyncedTextColor = textColor
         }
 
-        fileprivate func applyFullContent(text: String, textColor: UIColor) {
+        fileprivate func applyFullContent(text: String, textColor: UIColor, font: UIFont) {
             guard let textView else { return }
             let baseAttrs: [NSAttributedString.Key: Any] = [
-                .font: RichTextEditor.baseFont,
+                .font: font,
                 .foregroundColor: textColor,
             ]
             textView.attributedText = NSAttributedString(string: text, attributes: baseAttrs)
             textView.textColor = textColor
-            textView.font = RichTextEditor.baseFont
+            textView.font = font
         }
 
         // MARK: UITextViewDelegate
@@ -191,7 +197,7 @@ internal struct RichTextEditor: UIViewRepresentable {
             let range = textView.selectedRange
             let hasSelection = range.length > 0
             if !hasSelection {
-                textView.typingAttributes = RichTextEditor.baseTypingAttributes(textColor: UIColor(parent.textColor))
+                textView.typingAttributes = RichTextEditor.baseTypingAttributes(font: parent.resolvedFont, textColor: UIColor(parent.textColor))
             }
             guard hasSelection != lastHadSelection else {
                 parent.onSelectionChanged?(hasSelection, range)

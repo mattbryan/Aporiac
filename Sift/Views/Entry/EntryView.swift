@@ -24,8 +24,6 @@ struct EntryView: View {
 
     @FocusState private var gratitudeEditorFocused: Bool
 
-    private let contentTransformTrigger = MarkdownTransformTrigger()
-
     private var entryBodyOpacity: Double {
         guard case .past(_, let calendarDay) = destination else { return 1.0 }
         let today = Calendar.current.startOfDay(for: Date())
@@ -101,13 +99,10 @@ struct EntryView: View {
                             Text("ENTRY")
                                 .siftTextStyle(.microBold)
                                 .foregroundStyle(Color.siftAccent)
-                            MarkdownTextEditor(
+                            StructuredEntryEditor(
                                 text: $viewModel.contentText,
                                 placeholder: "Start Entry",
-                                textColor: .siftInk,
-                                bodyOpacity: entryBodyOpacity,
-                                trigger: contentTransformTrigger,
-                                onSelectionChanged: nil
+                                bodyOpacity: entryBodyOpacity
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }

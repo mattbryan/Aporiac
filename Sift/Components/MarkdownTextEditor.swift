@@ -13,6 +13,7 @@ internal enum SiftBlockKind: Int, Sendable {
 
 extension NSAttributedString.Key {
     static let siftBlockKind = NSAttributedString.Key("com.aporian.sift.blockKind")
+    static let siftBlockID = NSAttributedString.Key("com.aporian.sift.blockID")
 }
 
 // MARK: - Typography (matches `SiftTextStyleToken` / bundled font PostScript names)
@@ -85,12 +86,14 @@ internal final class MarkdownTransformTrigger: @unchecked Sendable {
 /// (`cardVerticalPadding`) extends below the fragment; keep `paragraphMargin` ≥ that value so the next
 /// line’s layout clears the fill.
 private enum MarkdownBlockCardLayout {
-    /// No extra inset — fragment already matches layout; avoids painting below the line the typesetter uses.
-    static let cardVerticalPadding: CGFloat = 0
+    static let blockHorizontalInset = DS.Spacing.xs
+    static let gemContentVerticalPadding = DS.Spacing.xs
+    static let actionContentVerticalPadding = DS.Spacing.sm
     /// Space before/after gem paragraphs (plain lines use default 0).
-    static let gemParagraphMargin = DS.Spacing.sm
+    static let gemParagraphMargin = DS.Spacing.md
     /// More vertical separation keeps stacked action cards from visually colliding.
-    static let actionParagraphMargin = DS.Spacing.md
+    static let actionParagraphMargin = DS.Spacing.lg
+    static let actionParagraphSpacingBefore = DS.Spacing.md
 }
 
 /// Horizontal rhythm for gem accent + action checkbox — keep drawing and `headIndent` aligned.
@@ -158,18 +161,32 @@ final class MarkdownLayoutManager: NSLayoutManager {
               let textContainer = textContainers.first else { return }
 
         let characterRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        let fullCharacterRange = NSRange(location: 0, length: textStorage.length)
 
-        textStorage.enumerateAttribute(.siftBlockKind, in: characterRange, options: []) { value, range, _ in
-            guard let kind = value as? SiftBlockKind else { return }
+        textStorage.enumerateAttribute(.siftBlockID, in: characterRange, options: []) { value, range, _ in
+            guard let blockID = value as? String else { return }
 
-            let glyphRange = self.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            var blockRange = NSRange(location: 0, length: 0)
+            guard let kind = textStorage.attribute(
+                .siftBlockKind,
+                at: range.location,
+                longestEffectiveRange: &blockRange,
+                in: fullCharacterRange
+            ) as? SiftBlockKind else { return }
+
+            // TextKit may ask us to draw different visible slices of the same block in separate passes.
+            // Only the pass that contains the logical block start should paint the card/checkbox.
+            guard range.location == blockRange.location,
+                  textStorage.attribute(.siftBlockID, at: blockRange.location, effectiveRange: nil) as? String == blockID else { return }
+
+            let glyphRange = self.glyphRange(forCharacterRange: blockRange, actualCharacterRange: nil)
             guard glyphRange.length > 0 else { return }
 
-            let cardRect = self.symmetricBlockCardRect(
+            let cardRect = self.blockCardRect(
                 glyphRange: glyphRange,
                 textContainer: textContainer,
                 viewOrigin: origin,
-                verticalPadding: MarkdownBlockCardLayout.cardVerticalPadding
+                kind: kind
             )
             guard cardRect.height > 0.5 else { return }
 
@@ -184,37 +201,61 @@ final class MarkdownLayoutManager: NSLayoutManager {
         }
     }
 
-    /// Full-width card behind a block: height from **line fragment** union (matches TextKit line layout and
-    /// caret). Optional symmetric `verticalPadding` for visual breathing only — keep in sync with
-    /// `MarkdownBlockCardLayout.paragraphMargin` when non-zero.
-    private func symmetricBlockCardRect(
+    /// Block cards are drawn from the used text bounds, then expanded with explicit internal padding.
+    /// Outer spacing between blocks comes from paragraph spacing, not from inflating the card rect itself.
+    private func blockCardRect(
         glyphRange: NSRange,
         textContainer: NSTextContainer,
         viewOrigin: CGPoint,
-        verticalPadding: CGFloat
+        kind: SiftBlockKind
     ) -> CGRect {
-        var fragmentUnion = CGRect.null
-        enumerateLineFragments(forGlyphRange: glyphRange) { rect, _, _, _, _ in
-            fragmentUnion = fragmentUnion.isNull ? rect : fragmentUnion.union(rect)
+        var usedRectUnion = CGRect.null
+        var lineFragmentUnion = CGRect.null
+        enumerateLineFragments(forGlyphRange: glyphRange) { rect, usedRect, _, _, _ in
+            lineFragmentUnion = lineFragmentUnion.isNull ? rect : lineFragmentUnion.union(rect)
+            if !usedRect.isNull {
+                usedRectUnion = usedRectUnion.isNull ? usedRect : usedRectUnion.union(usedRect)
+            }
         }
 
         let glyphBounds = boundingRect(forGlyphRange: glyphRange, in: textContainer)
         let glyphUsable = !glyphBounds.isNull && !glyphBounds.isInfinite && glyphBounds.height >= 0.5
 
-        // Prefer fragments — already include full line height; union with glyphs was inflating the card.
         let contentRect: CGRect
-        if !fragmentUnion.isNull {
-            contentRect = fragmentUnion
+        if !usedRectUnion.isNull {
+            contentRect = usedRectUnion
+        } else if !lineFragmentUnion.isNull {
+            contentRect = lineFragmentUnion
         } else if glyphUsable {
             contentRect = glyphBounds
         } else {
             return .zero
         }
 
+        let verticalPadding: CGFloat = switch kind {
+        case .gem:
+            MarkdownBlockCardLayout.gemContentVerticalPadding
+        case .actionIncomplete, .actionComplete:
+            MarkdownBlockCardLayout.actionContentVerticalPadding
+        }
+
         var cardRect = contentRect
-        cardRect.origin.x = 0
-        cardRect.size.width = textContainer.size.width
-        cardRect = cardRect.insetBy(dx: 0, dy: -verticalPadding)
+        cardRect.origin.x = MarkdownBlockCardLayout.blockHorizontalInset
+        cardRect.size.width = textContainer.size.width - (MarkdownBlockCardLayout.blockHorizontalInset * 2)
+        cardRect.origin.y -= verticalPadding
+        cardRect.size.height += verticalPadding * 2
+
+        if case .actionIncomplete = kind {
+            cardRect.size.height = max(
+                cardRect.height,
+                MarkdownBlockInlineMetrics.actionCheckboxSize + (verticalPadding * 2)
+            )
+        } else if case .actionComplete = kind {
+            cardRect.size.height = max(
+                cardRect.height,
+                MarkdownBlockInlineMetrics.actionCheckboxSize + (verticalPadding * 2)
+            )
+        }
 
         cardRect.origin.x += viewOrigin.x
         cardRect.origin.y += viewOrigin.y
@@ -657,6 +698,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                     range: fullRange
                 )
                 storage.removeAttribute(.siftBlockKind, range: fullRange)
+                storage.removeAttribute(.siftBlockID, range: fullRange)
                 storage.removeAttribute(.paragraphStyle, range: fullRange)
                 storage.removeAttribute(.strikethroughStyle, range: fullRange)
 
@@ -686,14 +728,24 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                     } else if lineString.hasPrefix("# ") {
                         applyHeading1Attributes(to: storage, lineRange: lineRange, prefixLength: 2, textColor: bodyTextColor)
                     } else if lineString.hasPrefix("> ") {
-                        applyGemAttributes(to: storage, lineRange: lineRange, prefixLength: 2, textColor: uiTextColor)
+                        let block = gemBlockDescriptor(startingAt: lineStart, text: nsText)
+                        applyGemAttributes(
+                            to: storage,
+                            blockRange: block.blockRange,
+                            prefixLength: 2,
+                            textColor: uiTextColor,
+                            blockID: "gem-\(lineStart)"
+                        )
+                        lineStart = block.nextLineStart
+                        continue
                     } else if MarkdownActionPrefixes.isCompleteTaskLine(lineString) {
                         applyActionAttributes(
                             to: storage,
                             lineRange: lineRange,
                             prefixLength: MarkdownActionPrefixes.prefixLength,
                             completed: true,
-                            textColor: uiTextColor
+                            textColor: uiTextColor,
+                            blockID: "action-\(lineStart)"
                         )
                     } else if MarkdownActionPrefixes.isIncompleteTaskLine(lineString) {
                         applyActionAttributes(
@@ -701,7 +753,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                             lineRange: lineRange,
                             prefixLength: MarkdownActionPrefixes.prefixLength,
                             completed: false,
-                            textColor: uiTextColor
+                            textColor: uiTextColor,
+                            blockID: "action-\(lineStart)"
                         )
                     }
 
@@ -736,21 +789,41 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
         }
 
-        private func applyGemAttributes(to storage: NSTextStorage, lineRange: NSRange, prefixLength: Int, textColor: UIColor) {
-            let style = NSMutableParagraphStyle()
+        private func applyGemAttributes(
+            to storage: NSTextStorage,
+            blockRange: NSRange,
+            prefixLength: Int,
+            textColor: UIColor,
+            blockID: String
+        ) {
+            storage.addAttribute(.siftBlockKind, value: SiftBlockKind.gem, range: blockRange)
+            storage.addAttribute(.siftBlockID, value: blockID, range: blockRange)
+
+            let nsText = storage.string as NSString
             let head = MarkdownBlockInlineMetrics.gemHeadIndent + DS.Spacing.xs
-            style.headIndent = head
-            style.firstLineHeadIndent = head
-            style.tailIndent = -DS.Spacing.xs
-            style.paragraphSpacingBefore = MarkdownBlockCardLayout.gemParagraphMargin
-            style.paragraphSpacing = MarkdownBlockCardLayout.gemParagraphMargin
+            var lineStart = blockRange.location
+            let blockEnd = NSMaxRange(blockRange)
+            while lineStart < blockEnd {
+                let fullLineRange = nsText.lineRange(for: NSRange(location: lineStart, length: 0))
+                let clippedLineRange = NSRange(
+                    location: fullLineRange.location,
+                    length: min(fullLineRange.length, blockEnd - fullLineRange.location)
+                )
 
-            storage.addAttribute(.paragraphStyle, value: style, range: lineRange)
-            storage.addAttribute(.siftBlockKind, value: SiftBlockKind.gem, range: lineRange)
-            storage.addAttribute(.font, value: MarkdownEditorTypography.gemBodyUIFont(), range: lineRange)
-            storage.addAttribute(.foregroundColor, value: textColor, range: lineRange)
+                let style = NSMutableParagraphStyle()
+                style.headIndent = head
+                style.firstLineHeadIndent = head
+                style.tailIndent = -DS.Spacing.xs
+                style.paragraphSpacingBefore = clippedLineRange.location == blockRange.location ? MarkdownBlockCardLayout.gemParagraphMargin : 0
+                style.paragraphSpacing = NSMaxRange(clippedLineRange) >= blockEnd ? MarkdownBlockCardLayout.gemParagraphMargin : 0
 
-            let prefixRange = NSRange(location: lineRange.location, length: min(prefixLength, lineRange.length))
+                storage.addAttribute(.paragraphStyle, value: style, range: clippedLineRange)
+                storage.addAttribute(.font, value: MarkdownEditorTypography.gemBodyUIFont(), range: clippedLineRange)
+                storage.addAttribute(.foregroundColor, value: textColor, range: clippedLineRange)
+                lineStart = NSMaxRange(clippedLineRange)
+            }
+
+            let prefixRange = NSRange(location: blockRange.location, length: min(prefixLength, blockRange.length))
             guard NSMaxRange(prefixRange) <= storage.length else { return }
             // Collapse prefix to near-zero width so first-line text aligns with wrapped lines
             storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
@@ -762,19 +835,21 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
             lineRange: NSRange,
             prefixLength: Int,
             completed: Bool,
-            textColor: UIColor
+            textColor: UIColor,
+            blockID: String
         ) {
             let style = NSMutableParagraphStyle()
             let head = MarkdownBlockInlineMetrics.actionHeadIndent + DS.Spacing.xs
             style.headIndent = head
             style.firstLineHeadIndent = head
             style.tailIndent = -DS.Spacing.xs
-            style.paragraphSpacingBefore = 0
+            style.paragraphSpacingBefore = MarkdownBlockCardLayout.actionParagraphSpacingBefore
             style.paragraphSpacing = MarkdownBlockCardLayout.actionParagraphMargin
 
             storage.addAttribute(.paragraphStyle, value: style, range: lineRange)
             let kind: SiftBlockKind = completed ? .actionComplete : .actionIncomplete
             storage.addAttribute(.siftBlockKind, value: kind, range: lineRange)
+            storage.addAttribute(.siftBlockID, value: blockID, range: lineRange)
             storage.addAttribute(.font, value: MarkdownEditorTypography.p2RegularUIFont(), range: lineRange)
 
             if completed {
@@ -786,7 +861,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
 
             let prefixRange = NSRange(location: lineRange.location, length: min(prefixLength, lineRange.length))
             guard NSMaxRange(prefixRange) <= storage.length else { return }
-            // Collapse prefix to near-zero width so first-line text aligns with wrapped lines
+            // Action markdown is only a signal; hide it so the rendered card owns the visible checkbox.
             storage.addAttribute(.font, value: UIFont.systemFont(ofSize: 0.1), range: prefixRange)
             storage.addAttribute(.foregroundColor, value: UIColor.clear, range: prefixRange)
             if completed {
@@ -873,17 +948,8 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                 (textView as? MarkdownGrowingTextView)?.invalidateIntrinsicContentSize()
                 textViewDidChange(textView)
                 return false
-            } else if lineContents.hasPrefix("> ") {
-                let insertion = "\n> "
-                let mutable = NSMutableString(string: currentText)
-                mutable.replaceCharacters(in: range, with: insertion)
-                textView.text = mutable as String
-                let newCaret = range.location + (insertion as NSString).length
-                textView.selectedRange = NSRange(location: newCaret, length: 0)
-                reapplyMarkdownAttributes()
-                (textView as? MarkdownGrowingTextView)?.invalidateIntrinsicContentSize()
-                textViewDidChange(textView)
-                return false
+            } else if gemBlockOpeningLineStart(containing: range.location, in: ns) != nil {
+                return true
             } else if MarkdownActionPrefixes.isEmptyTaskLine(lineContents) {
                 let deleteRange = NSRange(location: lineStart, length: contentsEnd - lineStart)
                 let mutable = NSMutableString(string: currentText)
@@ -968,7 +1034,7 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                     .foregroundColor: bodyTextColor,
                 ]
             }
-            if lineContents.hasPrefix("> ") {
+            if gemBlockOpeningLineStart(containing: pos, in: ns) != nil {
                 return [
                     .font: MarkdownEditorTypography.gemBodyUIFont(),
                     .foregroundColor: uiTextColor,
@@ -981,6 +1047,107 @@ internal struct MarkdownTextEditor: UIViewRepresentable {
                 ]
             }
             return baseTypingAttributes(textColor: bodyTextColor)
+        }
+
+        private func gemBlockDescriptor(startingAt start: Int, text: NSString) -> (blockRange: NSRange, nextLineStart: Int) {
+            var openingLineStart = 0
+            var openingLineEnd = 0
+            var openingContentsEnd = 0
+            text.getLineStart(
+                &openingLineStart,
+                end: &openingLineEnd,
+                contentsEnd: &openingContentsEnd,
+                for: NSRange(location: start, length: 0)
+            )
+
+            var includedEnd = openingLineEnd
+            var nextLineStart = openingLineEnd
+            var blankLineRun = 0
+
+            while nextLineStart < text.length {
+                var candidateLineStart = nextLineStart
+                var candidateLineEnd = 0
+                var candidateContentsEnd = 0
+                text.getLineStart(
+                    &candidateLineStart,
+                    end: &candidateLineEnd,
+                    contentsEnd: &candidateContentsEnd,
+                    for: NSRange(location: nextLineStart, length: 0)
+                )
+                let candidateContents = text.substring(
+                    with: NSRange(location: candidateLineStart, length: candidateContentsEnd - candidateLineStart)
+                )
+                if isNonGemBlockStarter(candidateContents) {
+                    break
+                }
+
+                if candidateContents.trimmingCharacters(in: .whitespaces).isEmpty {
+                    blankLineRun += 1
+                    if blankLineRun >= 2 {
+                        break
+                    }
+                } else {
+                    blankLineRun = 0
+                }
+
+                includedEnd = candidateLineEnd
+                nextLineStart = candidateLineEnd
+            }
+
+            return (
+                NSRange(location: openingLineStart, length: includedEnd - openingLineStart),
+                nextLineStart
+            )
+        }
+
+        private func gemBlockOpeningLineStart(containing location: Int, in text: NSString) -> Int? {
+            guard text.length > 0 else { return nil }
+
+            var probeStart = 0
+            var probeContentsEnd = 0
+            text.getLineStart(
+                &probeStart,
+                end: nil,
+                contentsEnd: &probeContentsEnd,
+                for: NSRange(location: min(max(0, location), max(0, text.length - 1)), length: 0)
+            )
+
+            var blankLineRun = 0
+            while true {
+                let probeContents = text.substring(with: NSRange(location: probeStart, length: probeContentsEnd - probeStart))
+                if probeContents.hasPrefix("> ") {
+                    return blankLineRun < 2 ? probeStart : nil
+                }
+                if isNonGemBlockStarter(probeContents) {
+                    return nil
+                }
+                if probeContents.trimmingCharacters(in: .whitespaces).isEmpty {
+                    blankLineRun += 1
+                    if blankLineRun >= 2 {
+                        return nil
+                    }
+                } else {
+                    blankLineRun = 0
+                }
+                if probeStart == 0 {
+                    return nil
+                }
+
+                let previousLocation = max(0, probeStart - 1)
+                text.getLineStart(
+                    &probeStart,
+                    end: nil,
+                    contentsEnd: &probeContentsEnd,
+                    for: NSRange(location: previousLocation, length: 0)
+                )
+            }
+        }
+
+        private func isNonGemBlockStarter(_ line: String) -> Bool {
+            line.hasPrefix("> ")
+                || line.hasPrefix("# ")
+                || line.hasPrefix("## ")
+                || MarkdownActionPrefixes.isAnyTaskLine(line)
         }
     }
 }

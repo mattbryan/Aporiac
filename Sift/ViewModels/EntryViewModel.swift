@@ -88,21 +88,14 @@ final class EntryViewModel {
     /// When true, suppress autosave while hydrating entry state from persisted sources.
     private var suppressScheduleAutosaveForHydration = false
 
-    /// Strips `> ` from the line containing the selection; next save sync removes the gem row.
+    /// Strips `> ` from the opening line of the gem block containing the selection; next save sync removes the gem row.
     func removeGemAtSelection(_ selectionRange: NSRange) {
         let ns = contentText as NSString
         guard selectionRange.location < ns.length else { return }
-        var lineStart = 0
-        var lineEnd = 0
-        var contentsEnd = 0
-        ns.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentsEnd,
-                        for: NSRange(location: selectionRange.location, length: 0))
-        let lineContents = ns.substring(with: NSRange(location: lineStart, length: contentsEnd - lineStart))
-        guard lineContents.hasPrefix("> ") else { return }
+        guard let openerRange = gemOpeningLinePrefixRange(containing: selectionRange.location, in: ns) else { return }
 
         let mutable = NSMutableString(string: contentText)
-        let prefixRange = NSRange(location: lineStart, length: 2)
-        mutable.replaceCharacters(in: prefixRange, with: "")
+        mutable.replaceCharacters(in: openerRange, with: "")
         contentText = mutable as String
         scheduleAutosave()
     }
@@ -183,7 +176,7 @@ final class EntryViewModel {
         guard ns.length > 0, startLineIndex >= 0, endLineIndex >= startLineIndex else { return (0, 0) }
         var lineNumber = 0
         var location = 0
-        var blockStart: Int?
+        var startOffset: Int?
         while location <= ns.length {
             let probe = min(location, max(0, ns.length - 1))
             var lineStart = 0
@@ -192,16 +185,69 @@ final class EntryViewModel {
             ns.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentsEnd,
                             for: NSRange(location: probe, length: 0))
             if lineNumber == startLineIndex {
-                blockStart = lineStart
+                startOffset = lineStart
             }
             if lineNumber == endLineIndex {
-                return (blockStart ?? lineStart, contentsEnd)
+                return (startOffset ?? lineStart, contentsEnd)
             }
             lineNumber += 1
             if lineEnd >= ns.length { break }
             location = lineEnd
         }
         return (0, 0)
+    }
+
+    private func gemOpeningLinePrefixRange(containing location: Int, in text: NSString) -> NSRange? {
+        guard text.length > 0 else { return nil }
+        let clampedLocation = min(max(0, location), max(0, text.length - 1))
+
+        var currentLineStart = 0
+        var currentLineEnd = 0
+        var currentContentsEnd = 0
+        text.getLineStart(
+            &currentLineStart,
+            end: &currentLineEnd,
+            contentsEnd: &currentContentsEnd,
+            for: NSRange(location: clampedLocation, length: 0)
+        )
+
+        var probeLineStart = currentLineStart
+        while probeLineStart >= 0 {
+            var lineEnd = 0
+            var contentsEnd = 0
+            text.getLineStart(
+                &probeLineStart,
+                end: &lineEnd,
+                contentsEnd: &contentsEnd,
+                for: NSRange(location: probeLineStart, length: 0)
+            )
+            let lineContents = text.substring(with: NSRange(location: probeLineStart, length: contentsEnd - probeLineStart))
+            if lineContents.hasPrefix("> ") {
+                return NSRange(location: probeLineStart, length: 2)
+            }
+            if lineContents.hasPrefix("# ")
+                || lineContents.hasPrefix("## ")
+                || lineContents.hasPrefix("* [x] ")
+                || lineContents.hasPrefix("* [ ] ")
+                || lineContents.hasPrefix("- [x] ")
+                || lineContents.hasPrefix("- [ ] ") {
+                return nil
+            }
+            if lineContents.trimmingCharacters(in: .whitespaces).isEmpty {
+                return nil
+            }
+            if probeLineStart == 0 { break }
+            var previousLineStart = 0
+            text.getLineStart(
+                &previousLineStart,
+                end: nil,
+                contentsEnd: nil,
+                for: NSRange(location: max(0, probeLineStart - 1), length: 0)
+            )
+            if previousLineStart == probeLineStart { break }
+            probeLineStart = previousLineStart
+        }
+        return nil
     }
 
     private func selectedThemeIDsStorageKey(for entryID: UUID) -> String {
@@ -239,7 +285,7 @@ final class EntryViewModel {
         suppressScheduleAutosaveForHydration = true
         currentEntry = entry
         gratitudeText = entry.gratitudeContent
-        contentText = entry.content
+        contentText = entry.contentBlocks.map(EntryMarkdownBlockCodec.markdown(from:)) ?? entry.content
         restoreSelectedThemes(for: entry.id)
         restoreDailyPrompt(for: entry.id)
         suppressScheduleAutosaveForHydration = false
@@ -439,6 +485,7 @@ final class EntryViewModel {
             userID: userID,
             gratitudeContent: "",
             content: "",
+            contentBlocks: [],
             createdAt: now,
             expiresAt: expiry,
             hasGem: false
@@ -524,14 +571,28 @@ final class EntryViewModel {
         print("[Entry] Saving entry \(entry.id)")
         #endif
         do {
-            try await service.client
-                .from("entries")
-                .update(EntryContentUpdate(
-                    gratitudeContent: gratitudeText,
-                    content: contentText
-                ))
-                .eq("id", value: entry.id.uuidString)
-                .execute()
+            let contentBlocks = EntryMarkdownBlockCodec.blocks(from: contentText)
+            do {
+                try await service.client
+                    .from("entries")
+                    .update(EntryContentUpdate(
+                        gratitudeContent: gratitudeText,
+                        content: contentText,
+                        contentBlocks: contentBlocks
+                    ))
+                    .eq("id", value: entry.id.uuidString)
+                    .execute()
+            } catch {
+                // Allow the new editor architecture to ship ahead of the DB migration.
+                try await service.client
+                    .from("entries")
+                    .update(EntryContentUpdate(
+                        gratitudeContent: gratitudeText,
+                        content: contentText
+                    ))
+                    .eq("id", value: entry.id.uuidString)
+                    .execute()
+            }
             #if DEBUG
             print("[Entry] Save succeeded")
             #endif
@@ -563,10 +624,12 @@ extension Notification.Name {
 private struct EntryContentUpdate: Encodable {
     let gratitudeContent: String
     let content: String
+    var contentBlocks: [PersistedEntryBlock]? = nil
 
     enum CodingKeys: String, CodingKey {
         case gratitudeContent = "gratitude_content"
         case content
+        case contentBlocks = "content_blocks"
     }
 }
 

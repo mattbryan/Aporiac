@@ -11,6 +11,8 @@
 		133A5BE3CBF93E478FBE14C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BF6048B2472CAFDC9F2223 /* Theme.swift */; };
 		17B5ABA09A0433128F831DF0 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFCBDE3614FBDEAD7C7DCA5E /* AIService.swift */; };
 		194053DC2F8189DE008093E2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 194053DB2F8189DE008093E2 /* Assets.xcassets */; };
+		199C98B42F8C61650091F74E /* StructuredEntryEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199C98B32F8C61650091F74E /* StructuredEntryEditor.swift */; };
+		199C98B62F8C669B0091F74E /* EntryBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199C98B52F8C669B0091F74E /* EntryBlock.swift */; };
 		199DD6AF2F80086D00E9DE0C /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6AE2F80086D00E9DE0C /* UserSettings.swift */; };
 		199DD6B62F80147A00E9DE0C /* ThemeFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B32F80147A00E9DE0C /* ThemeFormSheet.swift */; };
 		199DD6B72F80147A00E9DE0C /* ThemesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199DD6B42F80147A00E9DE0C /* ThemesView.swift */; };
@@ -72,6 +74,8 @@
 		0B4010C7BA5B6D0C9DFE0520 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		12D2840AB4D341C7CC4E20DC /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		194053DB2F8189DE008093E2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		199C98B32F8C61650091F74E /* StructuredEntryEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredEntryEditor.swift; sourceTree = "<group>"; };
+		199C98B52F8C669B0091F74E /* EntryBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryBlock.swift; sourceTree = "<group>"; };
 		199DD6AE2F80086D00E9DE0C /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
 		199DD6B22F80147A00E9DE0C /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		199DD6B32F80147A00E9DE0C /* ThemeFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFormSheet.swift; sourceTree = "<group>"; };
@@ -270,6 +274,7 @@
 				24DF29B9AF3D71054B551C6D /* DesignSystem.swift */,
 				E3C4D5E6F708192A3B4C6E20 /* HomeListInteractions.swift */,
 				FCA804A32A2E80BBCB018239 /* RichTextEditor.swift */,
+				199C98B32F8C61650091F74E /* StructuredEntryEditor.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -317,6 +322,7 @@
 				7666049ED31A071995FE51DB /* HabitLog.swift */,
 				A91F88B02F90E9DE00E9DE02 /* Philosophy.swift */,
 				C3BF6048B2472CAFDC9F2223 /* Theme.swift */,
+				199C98B52F8C669B0091F74E /* EntryBlock.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -471,6 +477,7 @@
 				F00D50022F8048AA00E9AB02 /* HabitFormSheet.swift in Sources */,
 				40C551D4E23DF5510D8EDF58 /* HabitsView.swift in Sources */,
 				6815A665E953F56843B39C51 /* HomeView.swift in Sources */,
+				199C98B62F8C669B0091F74E /* EntryBlock.swift in Sources */,
 				B1F263FAC2355E22F3E51B13 /* HomeViewModel.swift in Sources */,
 				199DD6B62F80147A00E9DE0C /* ThemeFormSheet.swift in Sources */,
 				19BCB7712F82C5230046F0C3 /* MarkdownTextEditor.swift in Sources */,
@@ -478,6 +485,7 @@
 				7F4CD71556BD60FE5E6EF409 /* RichTextEditor.swift in Sources */,
 				D3D051AD77DF88E31C5ED4BD /* SiftApp.swift in Sources */,
 				879CE5F69D0F0BBDA8F9ED8D /* SupabaseConfig.swift in Sources */,
+				199C98B42F8C61650091F74E /* StructuredEntryEditor.swift in Sources */,
 				298E0E7FF27BAE2DC25B6674 /* SupabaseService.swift in Sources */,
 				133A5BE3CBF93E478FBE14C2 /* Theme.swift in Sources */,
 				FFBD9AAC768502A21E390F28 /* ThemeViewModel.swift in Sources */,
